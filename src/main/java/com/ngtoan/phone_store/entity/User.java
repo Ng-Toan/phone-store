@@ -1,0 +1,53 @@
+package com.ngtoan.phone_store.entity;
+
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.experimental.FieldDefaults;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+
+@Entity
+@Table(name = "[User]")
+@Data
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "UserID")
+    int userId;
+
+    @Column(name = "Username", length = 50, nullable = false)
+    String username;
+
+    @Column(name = "Password", length = 255, nullable = false)
+    String password;
+
+    @Column(name = "FullName", length = 100, nullable = false)
+    String fullName;
+
+    @Column(name = "Email", length = 100, nullable = false)
+    String email;
+
+    @Column(name = "Phone", length = 20)
+    String phone;
+
+    @Column(name = "RoleID", nullable = false)
+    int roleId;
+
+    @Column(name = "LevelID")
+    Integer levelId; 
+
+    @Column(name = "TotalSpent")
+    BigDecimal totalSpent;
+
+    @Column(name = "Status")
+    Boolean status;
+
+    @Column(name = "CreatedDate")
+    LocalDateTime createdDate;
+
+}
