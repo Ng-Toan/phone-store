@@ -1,6 +1,6 @@
 package com.ngtoan.phone_store.dto.response;
 
-import java.util.List;
+import java.math.BigDecimal;
 
 import lombok.AccessLevel;
 import lombok.Data;
@@ -14,8 +14,8 @@ public class CartItemResponse {
     Integer productID;
     String productName;
 
-    Double price;
+    BigDecimal price;
     Integer quantity;
 
-    Double subtotal;
+    BigDecimal subtotal;
 }

@@ -4,6 +4,7 @@ import lombok.AccessLevel;
 import lombok.Data;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -14,5 +15,5 @@ public class CartResponse {
     List<CartItemResponse> items;
 
     Integer totalQuantity;
-    Double totalPrice;
+    BigDecimal totalPrice;
 }

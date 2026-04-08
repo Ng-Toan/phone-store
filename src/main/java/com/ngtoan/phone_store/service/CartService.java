@@ -5,20 +5,28 @@ import com.ngtoan.phone_store.dto.response.CartItemResponse;
 import com.ngtoan.phone_store.dto.response.CartResponse;
 import com.ngtoan.phone_store.entity.Cart;
 import com.ngtoan.phone_store.entity.CartItem;
+import com.ngtoan.phone_store.entity.Product;
+import com.ngtoan.phone_store.exception.ResourceNotFoundException;
 import com.ngtoan.phone_store.repository.CartItemRepository;
 import com.ngtoan.phone_store.repository.CartRepository;
+import com.ngtoan.phone_store.repository.ProductRepository;
+
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class CartService {
 
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
+    private final ProductRepository productRepository;
 
     // 👉 ADD
     public CartResponse addToCart(Integer userId, AddToCartRequest request) {
@@ -56,7 +64,7 @@ public class CartService {
 
         CartItem item = cartItemRepository
                 .findByCartIDAndProductID(cart.getCartID(), productId)
-                .orElseThrow(() -> new RuntimeException("Item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Cart item not found"));
 
         if (quantity <= 0) {
             cartItemRepository.delete(item);
@@ -75,7 +83,7 @@ public class CartService {
 
         CartItem item = cartItemRepository
                 .findByCartIDAndProductID(cart.getCartID(), productId)
-                .orElseThrow(() -> new RuntimeException("Item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Cart item not found"));
 
         cartItemRepository.delete(item);
 
@@ -112,17 +120,21 @@ public class CartService {
 
         List<CartItem> items = cartItemRepository.findByCartID(cart.getCartID());
 
-        List<CartItemResponse> itemResponses = items.stream().map(item -> {
+       List<CartItemResponse> itemResponses = items.stream().map(item -> {
 
-            double price = 100; // TODO: lấy từ Product
+            Product product = productRepository.findById(item.getProductID())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + item.getProductID()));
+            BigDecimal price = product.getPromotionPrice() != null
+            ? product.getPromotionPrice()
+            : product.getPrice();
 
             CartItemResponse res = new CartItemResponse();
             res.setCartItemID(item.getCartItemID());
             res.setProductID(item.getProductID());
-            res.setProductName("IPhone"); // TODO
+            res.setProductName(product.getName());
             res.setPrice(price);
             res.setQuantity(item.getQuantity());
-            res.setSubtotal(price * item.getQuantity());
+            res.setSubtotal(price.multiply(BigDecimal.valueOf(item.getQuantity())));
 
             return res;
 
@@ -132,9 +144,9 @@ public class CartService {
                 .mapToInt(CartItemResponse::getQuantity)
                 .sum();
 
-        double totalPrice = itemResponses.stream()
-                .mapToDouble(CartItemResponse::getSubtotal)
-                .sum();
+        BigDecimal totalPrice = itemResponses.stream()
+            .map(CartItemResponse::getSubtotal)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         CartResponse response = new CartResponse();
         response.setCartID(cart.getCartID());

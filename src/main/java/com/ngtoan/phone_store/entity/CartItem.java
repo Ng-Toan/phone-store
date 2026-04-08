@@ -9,6 +9,8 @@ import lombok.experimental.FieldDefaults;
 @Entity
 @Table(name = "CartItem")
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CartItem {
