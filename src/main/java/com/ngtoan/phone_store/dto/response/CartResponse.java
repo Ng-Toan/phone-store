@@ -1,21 +1,18 @@
 package com.ngtoan.phone_store.dto.response;
 
-import java.util.List;
-
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.experimental.FieldDefaults;
 
+import java.util.List;
+
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CartItemResponse {
+public class CartResponse {
 
-    Integer cartItemID;
-    Integer productID;
-    String productName;
+    Integer cartID;
+    List<CartItemResponse> items;
 
-    Double price;
-    Integer quantity;
-
-    Double subtotal;
+    Integer totalQuantity;
+    Double totalPrice;
 }

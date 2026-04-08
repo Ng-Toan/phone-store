@@ -1,6 +1,7 @@
 package com.ngtoan.phone_store.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.experimental.FieldDefaults;
@@ -32,7 +33,8 @@ public class User {
     @Column(name = "Email", length = 100, nullable = false)
     String email;
 
-    @Column(name = "Phone", length = 20)
+    @NotBlank
+    @Column(name = "Phone", length = 20, nullable = false)
     String phone;
 
     @Column(name = "RoleID", nullable = false)

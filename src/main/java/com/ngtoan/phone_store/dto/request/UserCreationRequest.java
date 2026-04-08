@@ -26,4 +26,6 @@ public class UserCreationRequest {
     String fullName;
     @NotNull(message = "RoleId is required")
     Integer roleId;
+    @NotBlank()
+    String phone;
 }
