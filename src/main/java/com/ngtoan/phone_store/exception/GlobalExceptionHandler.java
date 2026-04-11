@@ -75,6 +75,11 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest().body(response);
     }
+    @ExceptionHandler(OutOfStockException.class)
+    public ResponseEntity<?> handleOutOfStock(OutOfStockException ex) {
+        return ResponseEntity.status(409)
+                .body(buildResponse(409, ex.getMessage()));
+    }
 
     // 🔥 fallback - lỗi không xác định
     @ExceptionHandler(Exception.class)

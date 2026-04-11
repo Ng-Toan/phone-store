@@ -1,7 +1,13 @@
 package com.ngtoan.phone_store.repository;
 
 import com.ngtoan.phone_store.entity.Product;
+
+import jakarta.persistence.LockModeType;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -15,5 +21,10 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     // 🔹 Search theo tên (LIKE %name%)
     List<Product> findByNameContainingIgnoreCase(String name);
+
+        // 🔥 THÊM CÁI NÀY (QUAN TRỌNG)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Product p WHERE p.productID = :id")
+    Product findByIdForUpdate(@Param("id") Integer id);
 
 }

@@ -38,7 +38,7 @@ public class UserController {
     // user update profile
     @PutMapping("/profile")
     public User updateProfile(Authentication authentication,
-                            @RequestBody UserUpdateRequest request) {
+                            @Valid @RequestBody UserUpdateRequest request) {
 
         String username = authentication.getName();
 
