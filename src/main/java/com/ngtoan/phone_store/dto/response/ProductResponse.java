@@ -15,6 +15,7 @@ public class ProductResponse {
      String name;
      String image;
      BigDecimal price;
+     BigDecimal promotionPrice;
      Integer quantity;
      Boolean isHot;
      String description;

@@ -57,9 +57,6 @@ public class Product {
     @Size(max = 500)
     String description;
 
-    @Column(columnDefinition = "nvarchar(max)")
-    String detail;
-
     @Builder.Default
     Integer viewCount = 0;
 

@@ -36,8 +36,6 @@ public class ProductUpdateRequest {
 
     String description;
 
-    String detail;
-
     Integer categoryID;
     Integer brandID;
     Integer supplierID;

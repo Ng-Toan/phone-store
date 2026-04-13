@@ -31,8 +31,6 @@ public class ProductRequest {
 
     String description;
 
-    String detail;
-
     @NotNull
     Integer categoryID;
 

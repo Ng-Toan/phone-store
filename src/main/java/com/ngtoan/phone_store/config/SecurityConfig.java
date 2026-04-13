@@ -35,6 +35,8 @@ public class SecurityConfig {
                 // public API
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/users/register").permitAll()
+                
+                .requestMatchers("/img/**").permitAll()
 
                 // USER
                 .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")
