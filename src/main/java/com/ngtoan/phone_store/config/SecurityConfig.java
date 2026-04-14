@@ -35,7 +35,7 @@ public class SecurityConfig {
                 // public API
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/users/register").permitAll()
-                
+                .requestMatchers("/products/**").permitAll()
                 .requestMatchers("/img/**").permitAll()
 
                 // USER
