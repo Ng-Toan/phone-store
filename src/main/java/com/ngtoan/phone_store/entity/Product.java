@@ -8,6 +8,8 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -28,31 +30,31 @@ public class Product {
     @Size(max = 150)
     String name;
 
-    @Builder.Default
-    private Integer status = 1;
-
     @Size(max = 255)
     String image;
 
     @NotNull(message = "Price is required")
-    @DecimalMin(value = "0.0", inclusive = false)
+    @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
     BigDecimal price;
 
     BigDecimal promotionPrice;
 
-    @DecimalMin(value = "0.0")
+    @DecimalMin(value = "0.0", message = "VAT must be >= 0")
     BigDecimal vat;
 
-    @Min(0)
+    @Min(value = 0, message = "Quantity must be >= 0")
     @Builder.Default
     Integer quantity = 0;
 
-    @Min(0)
+    @Min(value = 0, message = "Warranty must be >= 0")
     @Builder.Default
-    Integer warranty = 12; 
+    Integer warranty = 12;
 
     @Builder.Default
     Boolean isHot = false;
+
+    @Builder.Default
+    Integer status = 1;
 
     @Size(max = 500)
     String description;
@@ -67,10 +69,26 @@ public class Product {
 
     Integer supplierID;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "categoryID", insertable = false, updatable = false)
+    Category category;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "brandID", insertable = false, updatable = false)
+    Brand brand;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supplierID", insertable = false, updatable = false)
+    Supplier supplier;
+
     @CreationTimestamp
     @Column(updatable = false)
     LocalDateTime createdDate;
 
     @UpdateTimestamp
     LocalDateTime updatedDate;
+
+    @JsonManagedReference
+    @OneToOne(mappedBy = "product", fetch = FetchType.LAZY)
+    ProductDetail detail;
 }

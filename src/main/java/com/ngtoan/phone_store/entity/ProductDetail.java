@@ -1,0 +1,35 @@
+package com.ngtoan.phone_store.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+import static lombok.AccessLevel.PRIVATE;
+
+@Entity
+@Table(name = "ProductDetail")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@FieldDefaults(level = PRIVATE)
+public class ProductDetail {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    Integer detailID;
+
+    @Column(name = "productID", insertable = false, updatable = false)
+    Integer productID;
+
+    String ram;
+    String storage;
+    String cpu;
+    String screen;
+    String battery;
+    String camera;
+
+    @OneToOne
+    @JoinColumn(name = "productID")
+    private Product product;
+
+}

@@ -29,6 +29,8 @@ public class ProductRequest {
 
     Boolean isHot;
 
+    Integer status;
+
     String description;
 
     @NotNull

@@ -34,6 +34,8 @@ public class ProductUpdateRequest {
 
     Boolean isHot;
 
+    Integer status;
+
     String description;
 
     Integer categoryID;

@@ -2,11 +2,13 @@ package com.ngtoan.phone_store.service;
 
 import com.ngtoan.phone_store.dto.request.ProductRequest;
 import com.ngtoan.phone_store.dto.request.ProductUpdateRequest;
+import com.ngtoan.phone_store.dto.response.ProductDetailResponse;
 import com.ngtoan.phone_store.dto.response.ProductResponse;
 import com.ngtoan.phone_store.entity.Product;
 import com.ngtoan.phone_store.exception.DuplicateResourceException;
 import com.ngtoan.phone_store.exception.ResourceNotFoundException;
 import com.ngtoan.phone_store.mapper.ProductMapper;
+import com.ngtoan.phone_store.repository.ProductDetailRepository;
 import com.ngtoan.phone_store.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,23 +22,40 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
+    private final ProductDetailRepository detailRepository;
 
     // 🔹 Lấy tất cả
     public List<ProductResponse> getAll() {
         return productRepository.findAll()
                 .stream()
                 .map(productMapper::toResponse)
+                .peek(product -> product.setDetail(null))
                 .toList();
     }
 
     // 🔹 Lấy theo ID
     public ProductResponse getById(int id) {
+
         Product product = productRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Product not found with id: " + id)
-                );
+                        new ResourceNotFoundException("Product not found with id: " + id));
 
-        return productMapper.toResponse(product);
+        ProductResponse response = productMapper.toResponse(product);
+
+        detailRepository.findByProductID(id).ifPresent(detail -> {
+            response.setDetail(
+                    ProductDetailResponse.builder()
+                            .ram(detail.getRam())
+                            .storage(detail.getStorage())
+                            .cpu(detail.getCpu())
+                            .screen(detail.getScreen())
+                            .battery(detail.getBattery())
+                            .camera(detail.getCamera())
+                            .build()
+            );
+        });
+
+        return response;
     }
 
     // 🔹 Tạo mới

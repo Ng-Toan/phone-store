@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .requestMatchers("/users/register").permitAll()
                 .requestMatchers("/products/**").permitAll()
                 .requestMatchers("/img/**").permitAll()
+                .requestMatchers("/files/**").permitAll()
 
                 // USER
                 .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")

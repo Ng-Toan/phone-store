@@ -18,8 +18,14 @@ public class ProductResponse {
      BigDecimal promotionPrice;
      Integer quantity;
      Boolean isHot;
+     Integer status;
      String description;
      Integer categoryID;
+    String categoryName;
+    String brandName;
+    String supplierName;
     LocalDateTime createdDate;
     LocalDateTime updatedDate;
+
+    ProductDetailResponse detail;
 }
