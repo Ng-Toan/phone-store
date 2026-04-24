@@ -133,6 +133,7 @@ public class CartService {
             res.setProductID(item.getProductID());
             res.setProductName(product.getName());
             res.setPrice(price);
+            res.setImage(product.getImage());
             res.setQuantity(item.getQuantity());
             res.setSubtotal(price.multiply(BigDecimal.valueOf(item.getQuantity())));
 

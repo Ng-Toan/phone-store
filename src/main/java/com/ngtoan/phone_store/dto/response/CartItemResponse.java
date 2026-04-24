@@ -13,6 +13,7 @@ public class CartItemResponse {
     Integer cartItemID;
     Integer productID;
     String productName;
+    String image;
 
     BigDecimal price;
     Integer quantity;

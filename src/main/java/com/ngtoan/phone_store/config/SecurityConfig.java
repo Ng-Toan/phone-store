@@ -38,6 +38,8 @@ public class SecurityConfig {
                 .requestMatchers("/products/**").permitAll()
                 .requestMatchers("/img/**").permitAll()
                 .requestMatchers("/files/**").permitAll()
+                //Giỏ hàng
+                .requestMatchers("/api/cart/**").hasAnyRole("USER")
 
                 // USER
                 .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")

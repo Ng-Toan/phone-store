@@ -1,6 +1,7 @@
 package com.ngtoan.phone_store.controller;
 
 import com.ngtoan.phone_store.dto.request.LoginRequest;
+import com.ngtoan.phone_store.entity.User;
 import com.ngtoan.phone_store.service.UserService;
 import com.ngtoan.phone_store.util.JwtUtil;
 
@@ -18,12 +19,18 @@ public class AuthController {
     private UserService userService;
 
     @PostMapping("/login")
-    public Map<String, String> login(@RequestBody LoginRequest request) {
+    public Map<String, Object> login(@RequestBody LoginRequest request) {
 
         String token = userService.login(request);
 
-        Map<String, String> res = new HashMap<>();
+        User user = userService.findByUsername(request.getUsername());
+
+        Map<String, Object> res = new HashMap<>();
         res.put("token", token);
+        res.put("username", user.getUsername());
+        res.put("fullName", user.getFullName());
+        String roleName = user.getRoleId() == 1 ? "ADMIN" : "USER";
+        res.put("role", roleName);
 
         return res;
     }
