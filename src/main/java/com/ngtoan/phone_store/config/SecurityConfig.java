@@ -41,6 +41,9 @@ public class SecurityConfig {
                 //Giỏ hàng
                 .requestMatchers("/api/cart/**").hasAnyRole("USER")
 
+                //Tạo Order
+                .requestMatchers("/orders/**").hasAnyRole("USER")
+
                 // USER
                 .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")
 

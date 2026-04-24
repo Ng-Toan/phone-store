@@ -1,101 +1,161 @@
 package com.ngtoan.phone_store.service;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
-
-import org.springframework.stereotype.Service;
-
+import com.ngtoan.phone_store.dto.request.CheckoutItemRequest;
+import com.ngtoan.phone_store.dto.request.CheckoutRequest;
 import com.ngtoan.phone_store.dto.response.OrderResponse;
 import com.ngtoan.phone_store.entity.*;
-import com.ngtoan.phone_store.exception.*;
-import com.ngtoan.phone_store.mapper.OrderMapper;
+import com.ngtoan.phone_store.exception.BadRequestException;
+import com.ngtoan.phone_store.exception.OutOfStockException;
+import com.ngtoan.phone_store.exception.ResourceNotFoundException;
 import com.ngtoan.phone_store.repository.*;
-
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderDetailRepository orderDetailRepository;
-
-    private final CartRepository cartRepository;
-    private final CartItemRepository cartItemRepository;
-
     private final ProductRepository productRepository;
+    private final CartItemRepository cartItemRepository;
+    private final CartRepository cartRepository;
+    private final UserRepository userRepository;
 
-    private final OrderMapper orderMapper;
+    // ===== CHECKOUT BẰNG USERNAME TỪ JWT =====
+    public OrderResponse placeOrder(String username, CheckoutRequest request) {
 
-    @Transactional
-    public OrderResponse placeOrder(Integer userID) {
+        User user = userRepository.findByUsername(username);
 
-        // 1. Lấy cart
-        Cart cart = cartRepository.findByUserID(userID)
-                .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
+            if (user == null) {
+                throw new ResourceNotFoundException("User not found");
+            }
 
-        List<CartItem> items = cartItemRepository.findByCartID(cart.getCartID());
+        Integer userID = user.getUserId();
 
-        if(items.isEmpty()){
-            throw new BadRequestException("Cart is empty");
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BadRequestException("No items selected");
         }
 
-        // 2. Check stock + tính total
         BigDecimal total = BigDecimal.ZERO;
 
-        for (CartItem item : items) {
+        // ===== CHECK STOCK + TÍNH TOTAL =====
+        for (CheckoutItemRequest item : request.getItems()) {
+
             Product product = productRepository.findByIdForUpdate(item.getProductID());
 
-            if(product == null){
-                throw new ResourceNotFoundException("Product not found");
+            if (product == null) {
+                throw new ResourceNotFoundException(
+                        "Product not found with id: " + item.getProductID()
+                );
             }
 
-            if(product.getQuantity() < item.getQuantity()){
-                throw new OutOfStockException("Product hết hàng: " + product.getName());
+            if (item.getQuantity() <= 0) {
+                throw new BadRequestException("Quantity must be greater than 0");
             }
 
-            total = total.add(product.getPrice()
-                    .multiply(BigDecimal.valueOf(item.getQuantity())));
+            if (product.getQuantity() < item.getQuantity()) {
+                throw new OutOfStockException(product.getName() + " out of stock");
+            }
+
+            BigDecimal price = product.getPromotionPrice() != null
+                    ? product.getPromotionPrice()
+                    : product.getPrice();
+
+            total = total.add(
+                    price.multiply(BigDecimal.valueOf(item.getQuantity()))
+            );
         }
 
-        // 3. Tạo Order
+        // ===== TẠO ORDER =====
         Order order = Order.builder()
                 .userID(userID)
+                .orderCode(generateOrderCode())
                 .createdDate(LocalDateTime.now())
                 .totalAmount(total)
                 .status(OrderStatus.PENDING)
+                .customerName(request.getCustomerName())
+                .phone(request.getPhone())
+                .address(request.getAddress())
+                .paymentMethod(
+                        request.getPaymentMethod() == null
+                                ? "COD"
+                                : request.getPaymentMethod()
+                )
                 .build();
 
         orderRepository.save(order);
 
-        // 4. Tạo OrderDetail + trừ stock
-        for (CartItem item : items) {
+        // ===== TẠO ORDER DETAIL + TRỪ KHO =====
+        for (CheckoutItemRequest item : request.getItems()) {
 
             Product product = productRepository.findByIdForUpdate(item.getProductID());
 
-            // trừ stock
+            BigDecimal price = product.getPromotionPrice() != null
+                    ? product.getPromotionPrice()
+                    : product.getPrice();
+
+            BigDecimal subtotal = price.multiply(
+                    BigDecimal.valueOf(item.getQuantity())
+            );
+
+            // trừ kho
             product.setQuantity(product.getQuantity() - item.getQuantity());
             productRepository.save(product);
 
-            // tạo detail
             OrderDetail detail = OrderDetail.builder()
                     .orderID(order.getOrderID())
                     .productID(product.getProductID())
+                    .productName(product.getName())
+                    .image(product.getImage())
                     .quantity(item.getQuantity())
-                    .price(product.getPrice())
+                    .price(price)
+                    .subtotal(subtotal)
                     .build();
 
             orderDetailRepository.save(detail);
         }
 
-        // 5. Xóa cart item
-        cartItemRepository.deleteAll(items);
+        // ===== XÓA ITEM ĐÃ MUA TRONG CART =====
+        clearPurchasedItemsFromCart(userID, request);
 
-        // 6. return DTO
-        return orderMapper.toDTO(order);
+        // ===== RESPONSE =====
+        OrderResponse response = new OrderResponse();
+        response.setOrderID(order.getOrderID());
+        response.setOrderCode(order.getOrderCode());
+        response.setTotalAmount(order.getTotalAmount());
+        response.setStatus(order.getStatus().name());
+        response.setCreatedDate(order.getCreatedDate());
+
+        return response;
+    }
+
+    // ===== CLEAR CART =====
+    private void clearPurchasedItemsFromCart(Integer userID, CheckoutRequest request) {
+
+        Cart cart = cartRepository.findByUserID(userID).orElse(null);
+
+        if (cart == null) return;
+
+        for (CheckoutItemRequest item : request.getItems()) {
+            cartItemRepository
+                    .findByCartIDAndProductID(
+                            cart.getCartID(),
+                            item.getProductID()
+                    )
+                    .ifPresent(cartItemRepository::delete);
+        }
+    }
+
+    // ===== GEN ORDER CODE =====
+    private String generateOrderCode() {
+        return "OD" + System.currentTimeMillis();
     }
 }

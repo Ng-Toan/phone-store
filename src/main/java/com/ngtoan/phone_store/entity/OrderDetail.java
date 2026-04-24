@@ -23,7 +23,13 @@ public class OrderDetail {
 
     Integer productID;
 
+    String productName;
+
+    String image;
+
     Integer quantity;
 
     BigDecimal price;
+
+    BigDecimal subtotal;
 }

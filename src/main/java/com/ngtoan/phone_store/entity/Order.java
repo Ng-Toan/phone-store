@@ -22,10 +22,20 @@ public class Order {
 
     Integer userID;
 
+    String orderCode;
+
     LocalDateTime createdDate;
 
     BigDecimal totalAmount;
 
     @Enumerated(EnumType.ORDINAL)
     OrderStatus status;
+
+    String customerName;
+
+    String phone;
+
+    String address;
+
+    String paymentMethod;
 }
