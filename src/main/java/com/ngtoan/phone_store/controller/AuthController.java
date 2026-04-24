@@ -29,6 +29,9 @@ public class AuthController {
         res.put("token", token);
         res.put("username", user.getUsername());
         res.put("fullName", user.getFullName());
+        res.put("userId", user.getUserId());
+        res.put("email", user.getEmail());
+        res.put("phone", user.getPhone());
         String roleName = user.getRoleId() == 1 ? "ADMIN" : "USER";
         res.put("role", roleName);
 
