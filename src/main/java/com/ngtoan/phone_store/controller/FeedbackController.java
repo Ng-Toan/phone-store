@@ -70,25 +70,41 @@ public class FeedbackController {
         );
     }
 
-    // UPDATE - Chỉ sửa feedback của chính mình (yêu cầu đăng nhập)
+    // UPDATE - USER sửa của mình, ADMIN sửa được tất cả
     @PutMapping("/update/{feedbackId}")
     public ResponseEntity<FeedbackResponse> updateFeedback(
             @PathVariable Integer feedbackId,
             @RequestBody FeedbackRequest request,
             Authentication authentication) {
 
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
         return ResponseEntity.ok(
-                feedbackService.updateFeedback(feedbackId, getUserId(authentication), request)
+                feedbackService.updateFeedback(
+                        feedbackId,
+                        getUserId(authentication),
+                        isAdmin,
+                        request
+                )
         );
     }
 
-    // DELETE - Chỉ xoá feedback của chính mình (yêu cầu đăng nhập)
+    // DELETE - USER xoá của mình, ADMIN xoá được tất cả
     @DeleteMapping("/delete/{feedbackId}")
     public ResponseEntity<String> deleteFeedback(
             @PathVariable Integer feedbackId,
             Authentication authentication) {
 
-        feedbackService.deleteFeedback(feedbackId, getUserId(authentication));
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        feedbackService.deleteFeedback(
+                feedbackId,
+                getUserId(authentication),
+                isAdmin
+        );
+
         return ResponseEntity.ok("Feedback deleted successfully");
     }
 }

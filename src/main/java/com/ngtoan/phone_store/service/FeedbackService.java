@@ -103,13 +103,17 @@ public class FeedbackService {
     }
 
     // UPDATE - Chỉ sửa comment và rating của chính mình
-    public FeedbackResponse updateFeedback(Integer feedbackId, Integer userId, FeedbackRequest request) {
-
+    public FeedbackResponse updateFeedback(
+            Integer feedbackId,
+            Integer userId,
+            boolean isAdmin,
+            FeedbackRequest request
+    ) {
         Feedback feedback = feedbackRepository.findById(feedbackId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Feedback not found with id: " + feedbackId));
 
-        if (!feedback.getUserID().equals(userId)) {
+        if (!isAdmin && !feedback.getUserID().equals(userId)) {
             throw new RuntimeException("You are not allowed to update this feedback");
         }
 
@@ -122,13 +126,12 @@ public class FeedbackService {
     }
 
     // DELETE
-    public void deleteFeedback(Integer feedbackId, Integer userId) {
-
+    public void deleteFeedback(Integer feedbackId, Integer userId, boolean isAdmin) {
         Feedback feedback = feedbackRepository.findById(feedbackId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Feedback not found with id: " + feedbackId));
 
-        if (!feedback.getUserID().equals(userId)) {
+        if (!isAdmin && !feedback.getUserID().equals(userId)) {
             throw new RuntimeException("You are not allowed to delete this feedback");
         }
 

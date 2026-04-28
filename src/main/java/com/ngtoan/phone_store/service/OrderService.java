@@ -2,6 +2,8 @@ package com.ngtoan.phone_store.service;
 
 import com.ngtoan.phone_store.dto.request.CheckoutItemRequest;
 import com.ngtoan.phone_store.dto.request.CheckoutRequest;
+import com.ngtoan.phone_store.dto.response.OrderAdminResponse;
+import com.ngtoan.phone_store.dto.response.OrderDetailResponse;
 import com.ngtoan.phone_store.dto.response.OrderResponse;
 import com.ngtoan.phone_store.entity.*;
 import com.ngtoan.phone_store.exception.BadRequestException;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -157,5 +160,77 @@ public class OrderService {
     // ===== GEN ORDER CODE =====
     private String generateOrderCode() {
         return "OD" + System.currentTimeMillis();
+    }
+
+    public java.util.List<OrderAdminResponse> getAllOrdersForAdmin() {
+    return orderRepository.findAll()
+            .stream()
+            .sorted((a, b) -> b.getCreatedDate().compareTo(a.getCreatedDate()))
+            .map(this::toAdminResponse)
+            .toList();
+}
+
+public OrderAdminResponse getOrderDetailForAdmin(Integer orderID) {
+    Order order = orderRepository.findById(orderID)
+            .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderID));
+
+    return toAdminResponse(order);
+}
+
+public OrderAdminResponse updateOrderStatus(Integer orderID, OrderStatus status) {
+    Order order = orderRepository.findById(orderID)
+            .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderID));
+
+    order.setStatus(status);
+    orderRepository.save(order);
+
+    return toAdminResponse(order);
+}
+
+private OrderAdminResponse toAdminResponse(Order order) {
+    java.util.List<OrderDetail> details =
+            orderDetailRepository.findByOrderID(order.getOrderID());
+
+    java.util.List<OrderDetailResponse> itemResponses = details.stream()
+            .map(detail -> {
+                OrderDetailResponse item = new OrderDetailResponse();
+                item.setOrderDetailID(detail.getOrderDetailID());
+                item.setProductID(detail.getProductID());
+                item.setProductName(detail.getProductName());
+                item.setImage(detail.getImage());
+                item.setQuantity(detail.getQuantity());
+                item.setPrice(detail.getPrice());
+                item.setSubtotal(detail.getSubtotal());
+                return item;
+            })
+            .toList();
+
+        OrderAdminResponse response = new OrderAdminResponse();
+        response.setOrderID(order.getOrderID());
+        response.setUserID(order.getUserID());
+        response.setOrderCode(order.getOrderCode());
+        response.setCreatedDate(order.getCreatedDate());
+        response.setTotalAmount(order.getTotalAmount());
+        response.setStatus(order.getStatus().name());
+        response.setCustomerName(order.getCustomerName());
+        response.setPhone(order.getPhone());
+        response.setAddress(order.getAddress());
+        response.setPaymentMethod(order.getPaymentMethod());
+        response.setItems(itemResponses);
+
+        return response;
+    }
+    public List<OrderAdminResponse> getMyOrders(String username) {
+        User user = userRepository.findByUsername(username);
+
+        if (user == null) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
+        return orderRepository.findByUserID(user.getUserId())
+                .stream()
+                .sorted((a, b) -> b.getCreatedDate().compareTo(a.getCreatedDate()))
+                .map(this::toAdminResponse)
+                .toList();
     }
 }

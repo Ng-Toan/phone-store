@@ -4,6 +4,7 @@ import com.ngtoan.phone_store.security.JwtFilter;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -38,11 +39,25 @@ public class SecurityConfig {
                 .requestMatchers("/products/**").permitAll()
                 .requestMatchers("/img/**").permitAll()
                 .requestMatchers("/files/**").permitAll()
+
+                // FEEDBACK - ai cũng được xem
+                .requestMatchers(HttpMethod.GET, "/api/feedback/product/**").permitAll()
+
+                // FEEDBACK - user đăng nhập mới được đánh giá
+                .requestMatchers(HttpMethod.POST, "/api/feedback/add").hasRole("USER")
+
+                // FEEDBACK - user hoặc admin được sửa/xoá
+                .requestMatchers(HttpMethod.PUT, "/api/feedback/update/**").hasAnyRole("USER", "ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/feedback/delete/**").hasAnyRole("USER", "ADMIN")
                 //Giỏ hàng
                 .requestMatchers("/api/cart/**").hasAnyRole("USER")
 
-                //Tạo Order
-                .requestMatchers("/orders/**").hasAnyRole("USER")
+                 // ORDER - ADMIN quản lý đơn hàng
+                .requestMatchers("/orders/admin/**").hasRole("ADMIN")
+
+                // ORDER - USER checkout
+                .requestMatchers("/orders/my-orders").hasRole("USER")
+                .requestMatchers("/orders/checkout").hasRole("USER")
 
                 // USER
                 .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")
