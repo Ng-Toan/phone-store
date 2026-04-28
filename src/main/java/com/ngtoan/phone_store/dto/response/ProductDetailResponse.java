@@ -15,4 +15,7 @@ public class ProductDetailResponse {
     String screen;
     String battery;
     String camera;
+    String os;
+    String chargingSpeed;
+    String connectivity;
 }

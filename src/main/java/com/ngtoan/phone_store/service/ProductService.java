@@ -51,6 +51,9 @@ public class ProductService {
                             .screen(detail.getScreen())
                             .battery(detail.getBattery())
                             .camera(detail.getCamera())
+                            .os(detail.getOs())
+                            .chargingSpeed(detail.getChargingSpeed())
+                            .connectivity(detail.getConnectivity())
                             .build()
             );
         });

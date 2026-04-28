@@ -27,6 +27,15 @@ public class ProductDetail {
     String screen;
     String battery;
     String camera;
+    
+    @Column(name = "OS")
+    String os;
+
+    @Column(name = "ChargingSpeed")
+    String chargingSpeed;
+
+    @Column(name = "Connectivity")
+    String connectivity;
 
     @OneToOne
     @JoinColumn(name = "productID")
