@@ -10,11 +10,13 @@ import com.ngtoan.phone_store.repository.FeedbackRepository;
 import com.ngtoan.phone_store.repository.ProductRepository;
 import com.ngtoan.phone_store.repository.UserRepository;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +43,7 @@ public class FeedbackService {
                 .productID(request.getProductId())
                 .comment(request.getComment())
                 .rating(request.getRating())
-                .createdDate(LocalDateTime.now())
+                .createdDate(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")))
                 .build();
 
         feedbackRepository.save(feedback);
