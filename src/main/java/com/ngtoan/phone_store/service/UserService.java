@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import com.ngtoan.phone_store.dto.request.LoginRequest;
 import com.ngtoan.phone_store.dto.request.UserCreationRequest;
 import com.ngtoan.phone_store.dto.request.UserUpdateRequest;
+import com.ngtoan.phone_store.dto.response.UserProfileResponse;
 import com.ngtoan.phone_store.exception.*;
 import com.ngtoan.phone_store.mapper.UserMapper;
 
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -114,6 +116,28 @@ public class UserService {
 
         return user;
     }
+
+    public UserProfileResponse getMyProfile(String username) {
+    User user = userRepository.findByUsername(username);
+
+    if (user == null) {
+        throw new ResourceNotFoundException("User not found");
+    }
+
+    UserProfileResponse response = new UserProfileResponse();
+    response.setUserId(user.getUserId());
+    response.setUsername(user.getUsername());
+    response.setFullName(user.getFullName());
+    response.setEmail(user.getEmail());
+    response.setPhone(user.getPhone());
+    response.setRoleId(user.getRoleId());
+    response.setLevelId(user.getLevelId());
+    response.setTotalSpent(user.getTotalSpent() == null ? BigDecimal.ZERO : user.getTotalSpent());
+    response.setStatus(user.getStatus());
+    response.setCreatedDate(user.getCreatedDate());
+
+    return response;
+}
 
     // =========================================================
     // ADMIN FUNCTIONS

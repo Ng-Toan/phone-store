@@ -61,6 +61,7 @@ public class SecurityConfig {
 
                 // USER
                 .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")
+                .requestMatchers("/users/me").hasAnyRole("USER", "ADMIN")
 
                 // ADMIN
                 .requestMatchers("/admin/**").hasRole("ADMIN")

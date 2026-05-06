@@ -4,6 +4,7 @@ import com.ngtoan.phone_store.entity.User;
 import com.ngtoan.phone_store.service.UserService;
 import com.ngtoan.phone_store.dto.request.UserCreationRequest;
 import com.ngtoan.phone_store.dto.request.UserUpdateRequest;
+import com.ngtoan.phone_store.dto.response.UserProfileResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -58,5 +59,11 @@ public class UserController {
                 req.get("oldPassword"),
                 req.get("newPassword")
         );
+    }
+
+    @GetMapping("/me")
+    public UserProfileResponse getMyProfile(Authentication authentication) {
+        String username = authentication.getName();
+        return userService.getMyProfile(username);
     }
 }

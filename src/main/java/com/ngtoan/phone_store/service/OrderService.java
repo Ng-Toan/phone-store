@@ -184,6 +184,9 @@ public OrderAdminResponse updateOrderStatus(Integer orderID, OrderStatus status)
     order.setStatus(status);
     orderRepository.save(order);
 
+    // Đồng bộ lại tổng chi tiêu của user sau khi đổi trạng thái đơn hàng
+    syncUserTotalSpent(order.getUserID());
+
     return toAdminResponse(order);
 }
 
@@ -233,4 +236,14 @@ private OrderAdminResponse toAdminResponse(Order order) {
                 .map(this::toAdminResponse)
                 .toList();
     }
+
+    private void syncUserTotalSpent(Integer userID) {
+    BigDecimal totalSpent = orderRepository.calculateTotalSpentByUserID(userID);
+
+    User user = userRepository.findById(userID)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userID));
+
+    user.setTotalSpent(totalSpent);
+    userRepository.save(user);
+}
 }
