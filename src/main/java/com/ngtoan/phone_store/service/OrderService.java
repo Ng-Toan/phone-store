@@ -31,15 +31,16 @@ public class OrderService {
     private final CartItemRepository cartItemRepository;
     private final CartRepository cartRepository;
     private final UserRepository userRepository;
+    private final MembershipLevelService membershipLevelService;
 
     // ===== CHECKOUT BẰNG USERNAME TỪ JWT =====
     public OrderResponse placeOrder(String username, CheckoutRequest request) {
 
         User user = userRepository.findByUsername(username);
 
-            if (user == null) {
-                throw new ResourceNotFoundException("User not found");
-            }
+        if (user == null) {
+            throw new ResourceNotFoundException("User not found");
+        }
 
         Integer userID = user.getUserId();
 
@@ -60,7 +61,7 @@ public class OrderService {
                 );
             }
 
-            if (item.getQuantity() <= 0) {
+            if (item.getQuantity() == null || item.getQuantity() <= 0) {
                 throw new BadRequestException("Quantity must be greater than 0");
             }
 
@@ -129,6 +130,9 @@ public class OrderService {
         // ===== XÓA ITEM ĐÃ MUA TRONG CART =====
         clearPurchasedItemsFromCart(userID, request);
 
+        // Không cập nhật TotalSpent ở đây
+        // Vì order mới tạo đang là PENDING, chưa phải mua hàng thành công.
+
         // ===== RESPONSE =====
         OrderResponse response = new OrderResponse();
         response.setOrderID(order.getOrderID());
@@ -162,51 +166,64 @@ public class OrderService {
         return "OD" + System.currentTimeMillis();
     }
 
-    public java.util.List<OrderAdminResponse> getAllOrdersForAdmin() {
-    return orderRepository.findAll()
-            .stream()
-            .sorted((a, b) -> b.getCreatedDate().compareTo(a.getCreatedDate()))
-            .map(this::toAdminResponse)
-            .toList();
-}
+    // ===== ADMIN LẤY TẤT CẢ ĐƠN HÀNG =====
+    public List<OrderAdminResponse> getAllOrdersForAdmin() {
+        return orderRepository.findAll()
+                .stream()
+                .sorted((a, b) -> b.getCreatedDate().compareTo(a.getCreatedDate()))
+                .map(this::toAdminResponse)
+                .toList();
+    }
 
-public OrderAdminResponse getOrderDetailForAdmin(Integer orderID) {
-    Order order = orderRepository.findById(orderID)
-            .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderID));
+    // ===== ADMIN XEM CHI TIẾT 1 ĐƠN =====
+    public OrderAdminResponse getOrderDetailForAdmin(Integer orderID) {
+        Order order = orderRepository.findById(orderID)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Order not found with id: " + orderID
+                ));
 
-    return toAdminResponse(order);
-}
+        return toAdminResponse(order);
+    }
 
-public OrderAdminResponse updateOrderStatus(Integer orderID, OrderStatus status) {
-    Order order = orderRepository.findById(orderID)
-            .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderID));
+    // ===== ADMIN CẬP NHẬT TRẠNG THÁI ĐƠN =====
+    public OrderAdminResponse updateOrderStatus(Integer orderID, OrderStatus status) {
 
-    order.setStatus(status);
-    orderRepository.save(order);
+        Order order = orderRepository.findById(orderID)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Order not found with id: " + orderID
+                ));
 
-    // Đồng bộ lại tổng chi tiêu của user sau khi đổi trạng thái đơn hàng
-    syncUserTotalSpent(order.getUserID());
+        order.setStatus(status);
+        orderRepository.save(order);
 
-    return toAdminResponse(order);
-}
+        // Đồng bộ lại tổng chi tiêu của user sau khi đổi trạng thái đơn hàng
+        syncUserTotalSpent(order.getUserID());
 
-private OrderAdminResponse toAdminResponse(Order order) {
-    java.util.List<OrderDetail> details =
-            orderDetailRepository.findByOrderID(order.getOrderID());
+        // Sau khi TotalSpent đã được đồng bộ, cập nhật lại LevelID theo MembershipLevel.MinSpent
+        membershipLevelService.updateUserMembershipLevel(order.getUserID());
 
-    java.util.List<OrderDetailResponse> itemResponses = details.stream()
-            .map(detail -> {
-                OrderDetailResponse item = new OrderDetailResponse();
-                item.setOrderDetailID(detail.getOrderDetailID());
-                item.setProductID(detail.getProductID());
-                item.setProductName(detail.getProductName());
-                item.setImage(detail.getImage());
-                item.setQuantity(detail.getQuantity());
-                item.setPrice(detail.getPrice());
-                item.setSubtotal(detail.getSubtotal());
-                return item;
-            })
-            .toList();
+        return toAdminResponse(order);
+    }
+
+    // ===== BUILD ADMIN RESPONSE =====
+    private OrderAdminResponse toAdminResponse(Order order) {
+
+        List<OrderDetail> details =
+                orderDetailRepository.findByOrderID(order.getOrderID());
+
+        List<OrderDetailResponse> itemResponses = details.stream()
+                .map(detail -> {
+                    OrderDetailResponse item = new OrderDetailResponse();
+                    item.setOrderDetailID(detail.getOrderDetailID());
+                    item.setProductID(detail.getProductID());
+                    item.setProductName(detail.getProductName());
+                    item.setImage(detail.getImage());
+                    item.setQuantity(detail.getQuantity());
+                    item.setPrice(detail.getPrice());
+                    item.setSubtotal(detail.getSubtotal());
+                    return item;
+                })
+                .toList();
 
         OrderAdminResponse response = new OrderAdminResponse();
         response.setOrderID(order.getOrderID());
@@ -223,7 +240,10 @@ private OrderAdminResponse toAdminResponse(Order order) {
 
         return response;
     }
+
+    // ===== USER XEM ĐƠN HÀNG CỦA MÌNH =====
     public List<OrderAdminResponse> getMyOrders(String username) {
+
         User user = userRepository.findByUsername(username);
 
         if (user == null) {
@@ -237,13 +257,21 @@ private OrderAdminResponse toAdminResponse(Order order) {
                 .toList();
     }
 
+    // ===== ĐỒNG BỘ TOTALSPENT TỪ ORDER =====
     private void syncUserTotalSpent(Integer userID) {
-    BigDecimal totalSpent = orderRepository.calculateTotalSpentByUserID(userID);
 
-    User user = userRepository.findById(userID)
-            .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userID));
+        BigDecimal totalSpent = orderRepository.calculateTotalSpentByUserID(userID);
 
-    user.setTotalSpent(totalSpent);
-    userRepository.save(user);
-}
+        if (totalSpent == null) {
+            totalSpent = BigDecimal.ZERO;
+        }
+
+        User user = userRepository.findById(userID)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found with id: " + userID
+                ));
+
+        user.setTotalSpent(totalSpent);
+        userRepository.save(user);
+    }
 }

@@ -49,19 +49,30 @@ public class SecurityConfig {
                 // FEEDBACK - user hoặc admin được sửa/xoá
                 .requestMatchers(HttpMethod.PUT, "/api/feedback/update/**").hasAnyRole("USER", "ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/feedback/delete/**").hasAnyRole("USER", "ADMIN")
-                //Giỏ hàng
-                .requestMatchers("/api/cart/**").hasAnyRole("USER")
 
-                 // ORDER - ADMIN quản lý đơn hàng
+                // GIỎ HÀNG
+                .requestMatchers("/api/cart/**").hasRole("USER")
+
+                // ORDER - ADMIN quản lý đơn hàng
                 .requestMatchers("/orders/admin/**").hasRole("ADMIN")
 
-                // ORDER - USER checkout
+                // ORDER - USER checkout / xem đơn của mình
                 .requestMatchers("/orders/my-orders").hasRole("USER")
                 .requestMatchers("/orders/checkout").hasRole("USER")
 
+                // MEMBERSHIP LEVEL - USER / ADMIN xem danh sách level
+                .requestMatchers(HttpMethod.GET, "/membership-levels").hasAnyRole("USER", "ADMIN")
+
+                // MEMBERSHIP LEVEL - USER xem hạng của chính mình
+                .requestMatchers(HttpMethod.GET, "/membership-levels/user/me").hasRole("USER")
+
+                // MEMBERSHIP LEVEL - ADMIN thêm/sửa/xóa/tính lại level
+                .requestMatchers("/membership-levels/admin").hasRole("ADMIN")
+                .requestMatchers("/membership-levels/admin/**").hasRole("ADMIN")
+
                 // USER
-                .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")
                 .requestMatchers("/users/me").hasAnyRole("USER", "ADMIN")
+                .requestMatchers("/users/**").hasAnyRole("USER", "ADMIN")
 
                 // ADMIN
                 .requestMatchers("/admin/**").hasRole("ADMIN")
