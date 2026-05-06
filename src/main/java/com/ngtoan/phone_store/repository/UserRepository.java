@@ -10,4 +10,8 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     User findByUsername(String username);
     boolean existsByEmail(String email);
     List<User> findByFullNameContainingIgnoreCase(String name);
+
+    // Dùng cho MembershipLevel
+    List<User> findByLevelId(Integer levelId);
+    boolean existsByLevelId(Integer levelId);
 }
