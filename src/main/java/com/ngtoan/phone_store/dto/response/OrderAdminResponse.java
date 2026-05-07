@@ -21,4 +21,6 @@ public class OrderAdminResponse {
     private String paymentMethod;
 
     private List<OrderDetailResponse> items;
+
+     private PaymentResponse payment;
 }

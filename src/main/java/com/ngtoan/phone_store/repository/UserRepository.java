@@ -12,7 +12,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     boolean existsByEmail(String email);
     List<User> findByFullNameContainingIgnoreCase(String name);
 
-    // Dùng cho MembershipLevel
+        // Dùng cho MembershipLevel
     List<User> findByLevelId(Integer levelId);
     boolean existsByLevelId(Integer levelId);
 }

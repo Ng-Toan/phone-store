@@ -37,5 +37,6 @@ public class Order {
 
     String address;
 
-    String paymentMethod;
+    @Enumerated(EnumType.STRING)
+    PaymentMethod paymentMethod;
 }

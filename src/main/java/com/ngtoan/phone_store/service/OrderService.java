@@ -5,6 +5,7 @@ import com.ngtoan.phone_store.dto.request.CheckoutRequest;
 import com.ngtoan.phone_store.dto.response.OrderAdminResponse;
 import com.ngtoan.phone_store.dto.response.OrderDetailResponse;
 import com.ngtoan.phone_store.dto.response.OrderResponse;
+import com.ngtoan.phone_store.dto.response.PaymentResponse;
 import com.ngtoan.phone_store.entity.*;
 import com.ngtoan.phone_store.exception.BadRequestException;
 import com.ngtoan.phone_store.exception.OutOfStockException;
@@ -31,13 +32,18 @@ public class OrderService {
     private final CartItemRepository cartItemRepository;
     private final CartRepository cartRepository;
     private final UserRepository userRepository;
+
+        // ===== PAYMENT =====
+    private final PaymentService paymentService;
+    private final PaymentRepository paymentRepository;
+
+    // ===== MEMBERSHIP =====
     private final MembershipLevelService membershipLevelService;
 
-    // ===== CHECKOUT BẰNG USERNAME TỪ JWT =====
+    // ===== CHECKOUT =====
     public OrderResponse placeOrder(String username, CheckoutRequest request) {
 
         User user = userRepository.findByUsername(username);
-
         if (user == null) {
             throw new ResourceNotFoundException("User not found");
         }
@@ -46,6 +52,16 @@ public class OrderService {
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new BadRequestException("No items selected");
+        }
+
+        // ===== VALIDATE PAYMENT METHOD =====
+        PaymentMethod method;
+        try {
+            method = request.getPaymentMethod() == null
+                    ? PaymentMethod.COD
+                    : PaymentMethod.valueOf(request.getPaymentMethod().toUpperCase());
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid payment method");
         }
 
         BigDecimal total = BigDecimal.ZERO;
@@ -61,7 +77,7 @@ public class OrderService {
                 );
             }
 
-            if (item.getQuantity() == null || item.getQuantity() <= 0) {
+            if (item.getQuantity() <= 0) {
                 throw new BadRequestException("Quantity must be greater than 0");
             }
 
@@ -88,14 +104,13 @@ public class OrderService {
                 .customerName(request.getCustomerName())
                 .phone(request.getPhone())
                 .address(request.getAddress())
-                .paymentMethod(
-                        request.getPaymentMethod() == null
-                                ? "COD"
-                                : request.getPaymentMethod()
-                )
+                .paymentMethod(method) // ✅ dùng enum
                 .build();
 
         orderRepository.save(order);
+
+        // ===== TẠO PAYMENT =====
+        paymentService.createPayment(order.getOrderID(), method);
 
         // ===== TẠO ORDER DETAIL + TRỪ KHO =====
         for (CheckoutItemRequest item : request.getItems()) {
@@ -127,11 +142,8 @@ public class OrderService {
             orderDetailRepository.save(detail);
         }
 
-        // ===== XÓA ITEM ĐÃ MUA TRONG CART =====
+        // ===== CLEAR CART =====
         clearPurchasedItemsFromCart(userID, request);
-
-        // Không cập nhật TotalSpent ở đây
-        // Vì order mới tạo đang là PENDING, chưa phải mua hàng thành công.
 
         // ===== RESPONSE =====
         OrderResponse response = new OrderResponse();
@@ -144,19 +156,38 @@ public class OrderService {
         return response;
     }
 
+    // ===== ADMIN UPDATE ORDER =====
+    public OrderAdminResponse updateOrderStatus(Integer orderID, OrderStatus status) {
+
+        Order order = orderRepository.findById(orderID)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderID));
+
+        order.setStatus(status);
+        orderRepository.save(order);
+
+        // 🔥 Sync payment (COD only)
+        paymentService.syncPaymentWithOrder(order);
+
+        // Đồng bộ totalSpent
+        syncUserTotalSpent(order.getUserID());
+
+        // ===== UPDATE MEMBERSHIP =====
+        membershipLevelService.updateUserMembershipLevel(
+                order.getUserID()
+        );
+
+        return toAdminResponse(order);
+    }
+
     // ===== CLEAR CART =====
     private void clearPurchasedItemsFromCart(Integer userID, CheckoutRequest request) {
 
         Cart cart = cartRepository.findByUserID(userID).orElse(null);
-
         if (cart == null) return;
 
         for (CheckoutItemRequest item : request.getItems()) {
             cartItemRepository
-                    .findByCartIDAndProductID(
-                            cart.getCartID(),
-                            item.getProductID()
-                    )
+                    .findByCartIDAndProductID(cart.getCartID(), item.getProductID())
                     .ifPresent(cartItemRepository::delete);
         }
     }
@@ -166,7 +197,7 @@ public class OrderService {
         return "OD" + System.currentTimeMillis();
     }
 
-    // ===== ADMIN LẤY TẤT CẢ ĐƠN HÀNG =====
+    // ===== ADMIN VIEW =====
     public List<OrderAdminResponse> getAllOrdersForAdmin() {
         return orderRepository.findAll()
                 .stream()
@@ -175,77 +206,17 @@ public class OrderService {
                 .toList();
     }
 
-    // ===== ADMIN XEM CHI TIẾT 1 ĐƠN =====
     public OrderAdminResponse getOrderDetailForAdmin(Integer orderID) {
         Order order = orderRepository.findById(orderID)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Order not found with id: " + orderID
-                ));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderID));
 
         return toAdminResponse(order);
     }
 
-    // ===== ADMIN CẬP NHẬT TRẠNG THÁI ĐƠN =====
-    public OrderAdminResponse updateOrderStatus(Integer orderID, OrderStatus status) {
-
-        Order order = orderRepository.findById(orderID)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Order not found with id: " + orderID
-                ));
-
-        order.setStatus(status);
-        orderRepository.save(order);
-
-        // Đồng bộ lại tổng chi tiêu của user sau khi đổi trạng thái đơn hàng
-        syncUserTotalSpent(order.getUserID());
-
-        // Sau khi TotalSpent đã được đồng bộ, cập nhật lại LevelID theo MembershipLevel.MinSpent
-        membershipLevelService.updateUserMembershipLevel(order.getUserID());
-
-        return toAdminResponse(order);
-    }
-
-    // ===== BUILD ADMIN RESPONSE =====
-    private OrderAdminResponse toAdminResponse(Order order) {
-
-        List<OrderDetail> details =
-                orderDetailRepository.findByOrderID(order.getOrderID());
-
-        List<OrderDetailResponse> itemResponses = details.stream()
-                .map(detail -> {
-                    OrderDetailResponse item = new OrderDetailResponse();
-                    item.setOrderDetailID(detail.getOrderDetailID());
-                    item.setProductID(detail.getProductID());
-                    item.setProductName(detail.getProductName());
-                    item.setImage(detail.getImage());
-                    item.setQuantity(detail.getQuantity());
-                    item.setPrice(detail.getPrice());
-                    item.setSubtotal(detail.getSubtotal());
-                    return item;
-                })
-                .toList();
-
-        OrderAdminResponse response = new OrderAdminResponse();
-        response.setOrderID(order.getOrderID());
-        response.setUserID(order.getUserID());
-        response.setOrderCode(order.getOrderCode());
-        response.setCreatedDate(order.getCreatedDate());
-        response.setTotalAmount(order.getTotalAmount());
-        response.setStatus(order.getStatus().name());
-        response.setCustomerName(order.getCustomerName());
-        response.setPhone(order.getPhone());
-        response.setAddress(order.getAddress());
-        response.setPaymentMethod(order.getPaymentMethod());
-        response.setItems(itemResponses);
-
-        return response;
-    }
-
-    // ===== USER XEM ĐƠN HÀNG CỦA MÌNH =====
+    // ===== USER VIEW =====
     public List<OrderAdminResponse> getMyOrders(String username) {
 
         User user = userRepository.findByUsername(username);
-
         if (user == null) {
             throw new ResourceNotFoundException("User not found");
         }
@@ -257,21 +228,83 @@ public class OrderService {
                 .toList();
     }
 
-    // ===== ĐỒNG BỘ TOTALSPENT TỪ ORDER =====
-    private void syncUserTotalSpent(Integer userID) {
+    // ===== MAP RESPONSE =====
+  private OrderAdminResponse toAdminResponse(Order order) {
 
-        BigDecimal totalSpent = orderRepository.calculateTotalSpentByUserID(userID);
+    List<OrderDetail> details =
+            orderDetailRepository.findByOrderID(order.getOrderID());
+
+    List<OrderDetailResponse> itemResponses = details.stream()
+            .map(detail -> {
+                OrderDetailResponse item = new OrderDetailResponse();
+                item.setOrderDetailID(detail.getOrderDetailID());
+                item.setProductID(detail.getProductID());
+                item.setProductName(detail.getProductName());
+                item.setImage(detail.getImage());
+                item.setQuantity(detail.getQuantity());
+                item.setPrice(detail.getPrice());
+                item.setSubtotal(detail.getSubtotal());
+                return item;
+            })
+            .toList();
+
+    OrderAdminResponse response = new OrderAdminResponse();
+    response.setOrderID(order.getOrderID());
+    response.setUserID(order.getUserID());
+    response.setOrderCode(order.getOrderCode());
+    response.setCreatedDate(order.getCreatedDate());
+    response.setTotalAmount(order.getTotalAmount());
+    response.setStatus(order.getStatus().name());
+    response.setCustomerName(order.getCustomerName());
+    response.setPhone(order.getPhone());
+    response.setAddress(order.getAddress());
+    response.setPaymentMethod(order.getPaymentMethod().name());
+    response.setItems(itemResponses);
+
+    // ===== PAYMENT =====
+    Payment payment = paymentRepository.findByOrderID(order.getOrderID())
+            .orElse(null);
+
+    if (payment != null) {
+        PaymentResponse paymentResponse = new PaymentResponse();
+        paymentResponse.setPaymentID(payment.getPaymentID());
+        paymentResponse.setMethod(payment.getMethod().name());
+        paymentResponse.setStatus(payment.getStatus().name());
+        paymentResponse.setAmount(payment.getAmount());
+        paymentResponse.setPaymentDate(payment.getPaymentDate());
+        paymentResponse.setTransactionCode(payment.getTransactionCode());
+
+        response.setPayment(paymentResponse);
+    } else {
+        response.setPayment(null); // optional
+    }
+
+    // ===== RETURN CUỐI =====
+    return response;
+}
+
+    // ===== SYNC USER TOTAL =====
+   private void syncUserTotalSpent(Integer userID) {
+
+        BigDecimal totalSpent =
+                orderRepository.calculateTotalSpentByUserID(
+                        userID
+                );
 
         if (totalSpent == null) {
             totalSpent = BigDecimal.ZERO;
         }
 
         User user = userRepository.findById(userID)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found with id: " + userID
-                ));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found with id: "
+                                        + userID
+                        )
+                );
 
         user.setTotalSpent(totalSpent);
+
         userRepository.save(user);
     }
 }

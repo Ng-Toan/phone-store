@@ -41,6 +41,7 @@ public class SecurityConfig {
                 .requestMatchers("/products/**").permitAll()
                 .requestMatchers("/img/**").permitAll()
                 .requestMatchers("/files/**").permitAll()
+                .requestMatchers("/payments/**").permitAll()
 
                 // FEEDBACK - ai cũng được xem
                 .requestMatchers(HttpMethod.GET, "/api/feedback/product/**").permitAll()
@@ -51,14 +52,13 @@ public class SecurityConfig {
                 // FEEDBACK - user hoặc admin được sửa/xoá
                 .requestMatchers(HttpMethod.PUT, "/api/feedback/update/**").hasAnyRole("USER", "ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/feedback/delete/**").hasAnyRole("USER", "ADMIN")
+                //Giỏ hàng
+                .requestMatchers("/api/cart/**").hasAnyRole("USER")
 
-                // GIỎ HÀNG
-                .requestMatchers("/api/cart/**").hasRole("USER")
-
-                // ORDER - ADMIN quản lý đơn hàng
+                 // ORDER - ADMIN quản lý đơn hàng
                 .requestMatchers("/orders/admin/**").hasRole("ADMIN")
 
-                // ORDER - USER checkout / xem đơn của mình
+                // ORDER - USER checkout
                 .requestMatchers("/orders/my-orders").hasRole("USER")
                 .requestMatchers("/orders/checkout").hasRole("USER")
 
@@ -73,8 +73,8 @@ public class SecurityConfig {
                 .requestMatchers("/membership-levels/admin/**").hasRole("ADMIN")
 
                 // USER
+                .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")
                 .requestMatchers("/users/me").hasAnyRole("USER", "ADMIN")
-                .requestMatchers("/users/**").hasAnyRole("USER", "ADMIN")
 
                 // ADMIN
                 .requestMatchers("/admin/**").hasRole("ADMIN")
