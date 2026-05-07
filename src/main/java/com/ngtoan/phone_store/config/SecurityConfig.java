@@ -36,6 +36,8 @@ public class SecurityConfig {
                 // public API
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/users/register").permitAll()
+                .requestMatchers("/users/verify-email").permitAll()
+                .requestMatchers("/users/resend-verification").permitAll()
                 .requestMatchers("/products/**").permitAll()
                 .requestMatchers("/img/**").permitAll()
                 .requestMatchers("/files/**").permitAll()

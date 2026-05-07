@@ -1,9 +1,12 @@
 package com.ngtoan.phone_store.controller;
 
 import com.ngtoan.phone_store.entity.User;
+import com.ngtoan.phone_store.service.EmailVerificationService;
 import com.ngtoan.phone_store.service.UserService;
+import com.ngtoan.phone_store.dto.request.ResendVerificationRequest;
 import com.ngtoan.phone_store.dto.request.UserCreationRequest;
 import com.ngtoan.phone_store.dto.request.UserUpdateRequest;
+import com.ngtoan.phone_store.dto.request.VerifyEmailRequest;
 import com.ngtoan.phone_store.dto.response.UserProfileResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,14 +24,32 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private EmailVerificationService emailVerificationService;
+
     // đăng ký (public)
     @PostMapping("/register")
     public User register(@Valid @RequestBody UserCreationRequest request) {
         return userService.register(request);
     }
 
+    // xác thực email bằng OTP (public)
+    @PostMapping("/verify-email")
+    public String verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        return emailVerificationService.verifyEmail(
+                request.getEmail(),
+                request.getOtpCode()
+        );
+    }
+
+    // gửi lại mã OTP (public)
+    @PostMapping("/resend-verification")
+    public String resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+        return emailVerificationService.resendVerificationCode(request.getEmail());
+    }
+
     // user xem profile
-        @GetMapping("/profile")
+    @GetMapping("/profile")
     public User getProfile(Authentication authentication) {
 
         String username = authentication.getName();
@@ -39,7 +60,7 @@ public class UserController {
     // user update profile
     @PutMapping("/profile")
     public User updateProfile(Authentication authentication,
-                            @Valid @RequestBody UserUpdateRequest request) {
+                              @Valid @RequestBody UserUpdateRequest request) {
 
         String username = authentication.getName();
 
@@ -47,10 +68,11 @@ public class UserController {
 
         return userService.updateUser(user.getUserId(), request);
     }
+
     // user đổi password
-   @PutMapping("/change-password")
+    @PutMapping("/change-password")
     public String changePassword(Authentication authentication,
-                                @RequestBody Map<String,String> req) {
+                                 @RequestBody Map<String,String> req) {
 
         String username = authentication.getName();
 

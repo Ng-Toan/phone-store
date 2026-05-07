@@ -30,6 +30,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
+    private final EmailVerificationService emailVerificationService;
 
     // =========================================================
     // USER FUNCTIONS
@@ -48,9 +49,24 @@ public class UserService {
 
         User user = userMapper.toEntity(dto);
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setStatus(true);
-        System.out.println("DTO email: " + dto.getEmail());
-        return userRepository.save(user);
+
+        // Tài khoản mới đăng ký chưa được login ngay
+        // Phải xác thực email bằng OTP trước
+        user.setStatus(false);
+
+        if (user.getTotalSpent() == null) {
+            user.setTotalSpent(BigDecimal.ZERO);
+        }
+
+        if (user.getLevelId() == null) {
+            user.setLevelId(1);
+        }
+
+        User savedUser = userRepository.save(user);
+
+        emailVerificationService.createAndSendOtp(savedUser);
+
+        return savedUser;
     }
 
     // Login (JWT)
@@ -61,8 +77,9 @@ public class UserService {
         if (user == null || !passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
             throw new UnauthorizedException("Invalid username or password");
         }
-        if(!user.getStatus()){
-            throw new ForbiddenException("Account is disabled");
+
+        if (!Boolean.TRUE.equals(user.getStatus())) {
+            throw new ForbiddenException("Please verify your email before login");
         }
 
         return JwtUtil.generateToken(user.getUsername());
@@ -118,26 +135,27 @@ public class UserService {
     }
 
     public UserProfileResponse getMyProfile(String username) {
-    User user = userRepository.findByUsername(username);
 
-    if (user == null) {
-        throw new ResourceNotFoundException("User not found");
+        User user = userRepository.findByUsername(username);
+
+        if (user == null) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
+        UserProfileResponse response = new UserProfileResponse();
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setFullName(user.getFullName());
+        response.setEmail(user.getEmail());
+        response.setPhone(user.getPhone());
+        response.setRoleId(user.getRoleId());
+        response.setLevelId(user.getLevelId());
+        response.setTotalSpent(user.getTotalSpent() == null ? BigDecimal.ZERO : user.getTotalSpent());
+        response.setStatus(user.getStatus());
+        response.setCreatedDate(user.getCreatedDate());
+
+        return response;
     }
-
-    UserProfileResponse response = new UserProfileResponse();
-    response.setUserId(user.getUserId());
-    response.setUsername(user.getUsername());
-    response.setFullName(user.getFullName());
-    response.setEmail(user.getEmail());
-    response.setPhone(user.getPhone());
-    response.setRoleId(user.getRoleId());
-    response.setLevelId(user.getLevelId());
-    response.setTotalSpent(user.getTotalSpent() == null ? BigDecimal.ZERO : user.getTotalSpent());
-    response.setStatus(user.getStatus());
-    response.setCreatedDate(user.getCreatedDate());
-
-    return response;
-}
 
     // =========================================================
     // ADMIN FUNCTIONS
