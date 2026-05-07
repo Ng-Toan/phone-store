@@ -36,37 +36,9 @@ public class UserService {
     // USER FUNCTIONS
     // =========================================================
 
-    // Register
-    public User register(@Valid @RequestBody UserCreationRequest dto) {
-
-        if (userRepository.findByUsername(dto.getUsername()) != null) {
-            throw new DuplicateResourceException("Username already exists");
-        }
-
-        if (userRepository.existsByEmail(dto.getEmail())) {
-            throw new DuplicateResourceException("Email already exists");
-        }
-
-        User user = userMapper.toEntity(dto);
-        user.setPassword(passwordEncoder.encode(dto.getPassword()));
-
-        // Tài khoản mới đăng ký chưa được login ngay
-        // Phải xác thực email bằng OTP trước
-        user.setStatus(false);
-
-        if (user.getTotalSpent() == null) {
-            user.setTotalSpent(BigDecimal.ZERO);
-        }
-
-        if (user.getLevelId() == null) {
-            user.setLevelId(1);
-        }
-
-        User savedUser = userRepository.save(user);
-
-        emailVerificationService.createAndSendOtp(savedUser);
-
-        return savedUser;
+    // Register: chỉ lưu tạm, chưa tạo User thật
+    public String register(@Valid @RequestBody UserCreationRequest dto) {
+        return emailVerificationService.createPendingRegistration(dto);
     }
 
     // Login (JWT)

@@ -19,13 +19,16 @@ public class UserCreationRequest {
     @Size(min = 6, message = "Password must be at least 6 characters")
     String password;
 
+    @NotBlank(message = "Email is required")
     @Email(message = "Email is invalid")
     String email;
 
     @NotBlank(message = "Full name is required")
     String fullName;
+
     @NotNull(message = "RoleId is required")
     Integer roleId;
-    @NotBlank()
+
+    @NotBlank(message = "Phone is required")
     String phone;
 }

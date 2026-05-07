@@ -27,13 +27,13 @@ public class UserController {
     @Autowired
     private EmailVerificationService emailVerificationService;
 
-    // đăng ký (public)
+    // đăng ký tạm và gửi OTP
     @PostMapping("/register")
-    public User register(@Valid @RequestBody UserCreationRequest request) {
+    public String register(@Valid @RequestBody UserCreationRequest request) {
         return userService.register(request);
     }
 
-    // xác thực email bằng OTP (public)
+    // xác thực email bằng OTP
     @PostMapping("/verify-email")
     public String verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
         return emailVerificationService.verifyEmail(
@@ -42,7 +42,7 @@ public class UserController {
         );
     }
 
-    // gửi lại mã OTP (public)
+    // gửi lại mã OTP
     @PostMapping("/resend-verification")
     public String resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
         return emailVerificationService.resendVerificationCode(request.getEmail());
