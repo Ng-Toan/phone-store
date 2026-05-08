@@ -6,8 +6,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.ngtoan.phone_store.entity.Payment;
-import com.ngtoan.phone_store.entity.PaymentMethod;
+
 import com.ngtoan.phone_store.service.PaymentService;
 
 import lombok.RequiredArgsConstructor;
@@ -18,16 +17,6 @@ import lombok.RequiredArgsConstructor;
 public class PaymentController {
 
     private final PaymentService paymentService;
-
-    // 1. Tạo payment
-    @PostMapping("/create")
-    public Payment createPayment(
-            @RequestParam Integer orderID,
-            @RequestParam PaymentMethod method
-    ) {
-        return paymentService.createPayment(orderID, method);
-    }
-
     // 2. SUCCESS (fake gateway)
     @PostMapping("/{id}/success")
     public String success(@PathVariable Integer id) {

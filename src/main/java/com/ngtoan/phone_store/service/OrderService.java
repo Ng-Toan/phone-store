@@ -110,6 +110,7 @@ public class OrderService {
         orderRepository.save(order);
 
         // ===== TẠO PAYMENT =====
+        Payment payment =
         paymentService.createPayment(order.getOrderID(), method);
 
         // ===== TẠO ORDER DETAIL + TRỪ KHO =====
@@ -152,6 +153,18 @@ public class OrderService {
         response.setTotalAmount(order.getTotalAmount());
         response.setStatus(order.getStatus().name());
         response.setCreatedDate(order.getCreatedDate());
+
+        // ===== PAYMENT RESPONSE =====
+        PaymentResponse paymentResponse = new PaymentResponse();
+
+        paymentResponse.setPaymentID(payment.getPaymentID());
+        paymentResponse.setMethod(payment.getMethod().name());
+        paymentResponse.setStatus(payment.getStatus().name());
+        paymentResponse.setAmount(payment.getAmount());
+        paymentResponse.setPaymentDate(payment.getPaymentDate());
+        paymentResponse.setTransactionCode(payment.getTransactionCode());
+
+        response.setPayment(paymentResponse);
 
         return response;
     }

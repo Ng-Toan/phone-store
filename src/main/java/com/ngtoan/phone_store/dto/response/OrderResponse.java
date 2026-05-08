@@ -13,4 +13,5 @@ public class OrderResponse {
     BigDecimal totalAmount;
     String status;
     LocalDateTime createdDate;
+    PaymentResponse payment;
 }

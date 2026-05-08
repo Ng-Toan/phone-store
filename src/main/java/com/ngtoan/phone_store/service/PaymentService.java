@@ -1,5 +1,6 @@
 package com.ngtoan.phone_store.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
@@ -9,17 +10,24 @@ import com.ngtoan.phone_store.entity.OrderStatus;
 import com.ngtoan.phone_store.entity.Payment;
 import com.ngtoan.phone_store.entity.PaymentMethod;
 import com.ngtoan.phone_store.entity.PaymentStatus;
+import com.ngtoan.phone_store.entity.User;
 import com.ngtoan.phone_store.repository.OrderRepository;
 import com.ngtoan.phone_store.repository.PaymentRepository;
+import com.ngtoan.phone_store.repository.UserRepository;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
+
+    private final MembershipLevelService membershipLevelService;
+    private final UserRepository userRepository;
 
     // 1. Tạo payment
     public Payment createPayment(Integer orderID, PaymentMethod method) {
@@ -41,6 +49,7 @@ public class PaymentService {
     // 2. Thanh toán thành công (ONLINE)
     public void handlePaymentSuccess(Integer paymentID) {
 
+        
         Payment payment = paymentRepository.findById(paymentID)
                 .orElseThrow();
 
@@ -57,6 +66,14 @@ public class PaymentService {
 
         paymentRepository.save(payment);
         orderRepository.save(order);
+
+        // ===== CỘNG TOTAL SPENT =====
+        syncUserTotalSpent(order.getUserID());
+
+        // ===== UPDATE MEMBERSHIP =====
+        membershipLevelService.updateUserMembershipLevel(
+                order.getUserID()
+        );
     }
 
     // 3. Thanh toán thất bại (ONLINE)
@@ -103,5 +120,29 @@ public class PaymentService {
         }
 
         paymentRepository.save(payment);
+    }
+
+    private void syncUserTotalSpent(Integer userID) {
+
+        BigDecimal totalSpent =
+                orderRepository.calculateTotalSpentByUserID(
+                        userID
+                );
+
+        if (totalSpent == null) {
+            totalSpent = BigDecimal.ZERO;
+        }
+
+        User user = userRepository.findById(userID)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "User not found with id: "
+                                        + userID
+                        )
+                );
+
+        user.setTotalSpent(totalSpent);
+
+        userRepository.save(user);
     }
 }
