@@ -5,6 +5,7 @@ services:
     environment:
       SA_PASSWORD: "Password123!"
       ACCEPT_EULA: "Y"
+      TZ: Asia/Ho_Chi_Minh
     ports:
       - "1433:1433"
     volumes:
@@ -29,6 +30,8 @@ services:
     ports:
       - "8080:8080"
     environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Ho_Chi_Minh"
       SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=QLiDienThoai;encrypt=false
       SPRING_DATASOURCE_USERNAME: sa
       SPRING_DATASOURCE_PASSWORD: Password123!
@@ -36,7 +39,7 @@ services:
       - sqlserver
     restart: on-failure
     command: >
-      sh -c "sleep 40 && java -jar /app/app.jar"
+      sh -c "sleep 40 && java -Duser.timezone=Asia/Ho_Chi_Minh -jar /app/app.jar"
 
 volumes:
   sqldata:
