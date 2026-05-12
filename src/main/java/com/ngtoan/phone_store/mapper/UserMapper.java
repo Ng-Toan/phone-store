@@ -18,5 +18,7 @@ public interface UserMapper {
     User toEntity(UserCreationRequest dto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+     @Mapping(target = "roleId", ignore = true)
+    @Mapping(target = "status", ignore = true)
     void updateUser(@MappingTarget User user, UserUpdateRequest dto);
 }
