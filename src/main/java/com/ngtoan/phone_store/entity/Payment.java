@@ -38,4 +38,9 @@ public class Payment {
     @Column(nullable = false)
     LocalDateTime createdDate;
 
+    @Column(columnDefinition = "NVARCHAR(255)")
+    String note;
+
+    String paymentCode;
+
 }

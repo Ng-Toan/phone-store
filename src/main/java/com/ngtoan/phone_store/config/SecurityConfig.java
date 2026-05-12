@@ -41,7 +41,6 @@ public class SecurityConfig {
                 .requestMatchers("/products/**").permitAll()
                 .requestMatchers("/img/**").permitAll()
                 .requestMatchers("/files/**").permitAll()
-                .requestMatchers("/payments/**").permitAll()
 
                 // FEEDBACK - ai cũng được xem
                 .requestMatchers(HttpMethod.GET, "/api/feedback/product/**").permitAll()
@@ -71,6 +70,14 @@ public class SecurityConfig {
                 // MEMBERSHIP LEVEL - ADMIN thêm/sửa/xóa/tính lại level
                 .requestMatchers("/membership-levels/admin").hasRole("ADMIN")
                 .requestMatchers("/membership-levels/admin/**").hasRole("ADMIN")
+
+                // PAYMENT CALLBACK
+                .requestMatchers(HttpMethod.POST, "/payments/*/success").permitAll()
+                .requestMatchers(HttpMethod.POST, "/payments/*/fail").permitAll()
+
+                // PAYMENT ADMIN
+                .requestMatchers(HttpMethod.GET, "/payments").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/payments/**").hasRole("ADMIN")
 
                 // USER
                 .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")

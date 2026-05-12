@@ -33,7 +33,7 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final UserRepository userRepository;
 
-        // ===== PAYMENT =====
+    // ===== PAYMENT =====
     private final PaymentService paymentService;
     private final PaymentRepository paymentRepository;
 
@@ -44,6 +44,7 @@ public class OrderService {
     public OrderResponse placeOrder(String username, CheckoutRequest request) {
 
         User user = userRepository.findByUsername(username);
+
         if (user == null) {
             throw new ResourceNotFoundException("User not found");
         }
@@ -56,10 +57,15 @@ public class OrderService {
 
         // ===== VALIDATE PAYMENT METHOD =====
         PaymentMethod method;
+
         try {
+
             method = request.getPaymentMethod() == null
                     ? PaymentMethod.COD
-                    : PaymentMethod.valueOf(request.getPaymentMethod().toUpperCase());
+                    : PaymentMethod.valueOf(
+                            request.getPaymentMethod().toUpperCase()
+                    );
+
         } catch (Exception e) {
             throw new BadRequestException("Invalid payment method");
         }
@@ -69,32 +75,45 @@ public class OrderService {
         // ===== CHECK STOCK + TÍNH TOTAL =====
         for (CheckoutItemRequest item : request.getItems()) {
 
-            Product product = productRepository.findByIdForUpdate(item.getProductID());
+            Product product =
+                    productRepository.findByIdForUpdate(
+                            item.getProductID()
+                    );
 
             if (product == null) {
                 throw new ResourceNotFoundException(
-                        "Product not found with id: " + item.getProductID()
+                        "Product not found with id: "
+                                + item.getProductID()
                 );
             }
 
             if (item.getQuantity() <= 0) {
-                throw new BadRequestException("Quantity must be greater than 0");
+                throw new BadRequestException(
+                        "Quantity must be greater than 0"
+                );
             }
 
             if (product.getQuantity() < item.getQuantity()) {
-                throw new OutOfStockException(product.getName() + " out of stock");
+                throw new OutOfStockException(
+                        product.getName() + " out of stock"
+                );
             }
 
-            BigDecimal price = product.getPromotionPrice() != null
-                    ? product.getPromotionPrice()
-                    : product.getPrice();
+            BigDecimal price =
+                    product.getPromotionPrice() != null
+                            ? product.getPromotionPrice()
+                            : product.getPrice();
 
             total = total.add(
-                    price.multiply(BigDecimal.valueOf(item.getQuantity()))
+                    price.multiply(
+                            BigDecimal.valueOf(
+                                    item.getQuantity()
+                            )
+                    )
             );
         }
 
-        // ===== TẠO ORDER =====
+        // ===== CREATE ORDER =====
         Order order = Order.builder()
                 .userID(userID)
                 .orderCode(generateOrderCode())
@@ -104,31 +123,37 @@ public class OrderService {
                 .customerName(request.getCustomerName())
                 .phone(request.getPhone())
                 .address(request.getAddress())
-                .paymentMethod(method) // ✅ dùng enum
+                .paymentMethod(method)
                 .build();
 
         orderRepository.save(order);
 
-        // ===== TẠO PAYMENT =====
+        // ===== CREATE PAYMENT =====
         Payment payment =
-        paymentService.createPayment(order.getOrderID(), method);
+                paymentService.createPayment(
+                        order.getOrderID(),
+                        method
+                );
 
-        // ===== TẠO ORDER DETAIL + TRỪ KHO =====
+        // ===== CREATE ORDER DETAIL =====
         for (CheckoutItemRequest item : request.getItems()) {
 
-            Product product = productRepository.findByIdForUpdate(item.getProductID());
+            Product product =
+                    productRepository.findByIdForUpdate(
+                            item.getProductID()
+                    );
 
-            BigDecimal price = product.getPromotionPrice() != null
-                    ? product.getPromotionPrice()
-                    : product.getPrice();
+            BigDecimal price =
+                    product.getPromotionPrice() != null
+                            ? product.getPromotionPrice()
+                            : product.getPrice();
 
-            BigDecimal subtotal = price.multiply(
-                    BigDecimal.valueOf(item.getQuantity())
-            );
-
-            // trừ kho
-            product.setQuantity(product.getQuantity() - item.getQuantity());
-            productRepository.save(product);
+            BigDecimal subtotal =
+                    price.multiply(
+                            BigDecimal.valueOf(
+                                    item.getQuantity()
+                            )
+                    );
 
             OrderDetail detail = OrderDetail.builder()
                     .orderID(order.getOrderID())
@@ -148,6 +173,7 @@ public class OrderService {
 
         // ===== RESPONSE =====
         OrderResponse response = new OrderResponse();
+
         response.setOrderID(order.getOrderID());
         response.setOrderCode(order.getOrderCode());
         response.setTotalAmount(order.getTotalAmount());
@@ -155,52 +181,262 @@ public class OrderService {
         response.setCreatedDate(order.getCreatedDate());
 
         // ===== PAYMENT RESPONSE =====
-        PaymentResponse paymentResponse = new PaymentResponse();
+        PaymentResponse paymentResponse =
+                new PaymentResponse();
 
-        paymentResponse.setPaymentID(payment.getPaymentID());
-        paymentResponse.setMethod(payment.getMethod().name());
-        paymentResponse.setStatus(payment.getStatus().name());
-        paymentResponse.setAmount(payment.getAmount());
-        paymentResponse.setPaymentDate(payment.getPaymentDate());
-        paymentResponse.setTransactionCode(payment.getTransactionCode());
+        paymentResponse.setPaymentID(
+                payment.getPaymentID()
+        );
+
+
+        paymentResponse.setPaymentCode(
+                payment.getPaymentCode()
+        );
+
+        paymentResponse.setOrderCode(
+                order.getOrderCode()
+        );
+
+        paymentResponse.setMethod(
+                payment.getMethod().name()
+        );
+
+        paymentResponse.setStatus(
+                payment.getStatus().name()
+        );
+
+        paymentResponse.setAmount(
+                payment.getAmount()
+        );
+
+        paymentResponse.setPaymentDate(
+                payment.getPaymentDate()
+        );
+
+        paymentResponse.setTransactionCode(
+                payment.getTransactionCode()
+        );
 
         response.setPayment(paymentResponse);
 
         return response;
     }
 
+    // ===== DEDUCT STOCK =====
+    public void deductStock(Integer orderID) {
+
+        List<OrderDetail> details =
+                orderDetailRepository.findByOrderID(orderID);
+
+        for (OrderDetail detail : details) {
+
+            Product product =
+                    productRepository.findByIdForUpdate(
+                            detail.getProductID()
+                    );
+
+            if (product == null) {
+                throw new ResourceNotFoundException(
+                        "Product not found"
+                );
+            }
+
+            if (product.getQuantity() < detail.getQuantity()) {
+
+                throw new OutOfStockException(
+                        product.getName() + " out of stock"
+                );
+            }
+
+            product.setQuantity(
+                    product.getQuantity()
+                            - detail.getQuantity()
+            );
+
+            productRepository.save(product);
+        }
+    }
+
+    // ===== RESTORE STOCK =====
+    public void restoreStock(Integer orderID) {
+
+        List<OrderDetail> details =
+                orderDetailRepository.findByOrderID(orderID);
+
+        for (OrderDetail detail : details) {
+
+            Product product =
+                    productRepository.findByIdForUpdate(
+                            detail.getProductID()
+                    );
+
+            if (product == null) {
+                continue;
+            }
+
+            product.setQuantity(
+                    product.getQuantity()
+                            + detail.getQuantity()
+            );
+
+            productRepository.save(product);
+        }
+    }
+
+    // ===== VALIDATE STATUS FLOW =====
+    private void validateOrderStatusTransition(
+            OrderStatus currentStatus,
+            OrderStatus newStatus
+    ) {
+
+        // không đổi nếu giống nhau
+        if (currentStatus == newStatus) {
+            return;
+        }
+
+        switch (currentStatus) {
+
+            case PENDING:
+
+                // chỉ được CONFIRMED hoặc CANCELLED
+                if (
+                        newStatus != OrderStatus.CONFIRMED
+                        && newStatus != OrderStatus.CANCELLED
+                ) {
+
+                    throw new BadRequestException(
+                            "Invalid status transition"
+                    );
+                }
+
+                break;
+
+            case CONFIRMED:
+
+                // chỉ được SHIPPING hoặc CANCELLED
+                if (
+                        newStatus != OrderStatus.SHIPPING
+                        && newStatus != OrderStatus.CANCELLED
+                ) {
+
+                    throw new BadRequestException(
+                            "Invalid status transition"
+                    );
+                }
+
+                break;
+
+            case SHIPPING:
+
+                    // được DELIVERED hoặc CANCELLED
+                if (
+                        newStatus != OrderStatus.DELIVERED
+                          && newStatus != OrderStatus.CANCELLED
+                ) {
+
+                    throw new BadRequestException(
+                            "Invalid status transition"
+                    );
+                }
+
+                break;
+
+            case DELIVERED:
+            case CANCELLED:
+
+                throw new BadRequestException(
+                        "Cannot change completed order"
+                );
+        }
+    }
+
     // ===== ADMIN UPDATE ORDER =====
-    public OrderAdminResponse updateOrderStatus(Integer orderID, OrderStatus status) {
+    public OrderAdminResponse updateOrderStatus(
+            Integer orderID,
+            OrderStatus status
+    ) {
 
         Order order = orderRepository.findById(orderID)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderID));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Order not found with id: "
+                                        + orderID
+                        )
+                );
 
+        OrderStatus oldStatus = order.getStatus();
+
+        // ===== VALIDATE FLOW =====
+        validateOrderStatusTransition(
+                oldStatus,
+                status
+        );
+
+        // ===== TRỪ KHO =====
+        if (
+                status == OrderStatus.CONFIRMED
+                && oldStatus == OrderStatus.PENDING
+        ) {
+
+            deductStock(orderID);
+        }
+
+        // ===== HOÀN KHO =====
+        if (
+                status == OrderStatus.CANCELLED
+                &&
+                (
+                        oldStatus == OrderStatus.CONFIRMED
+                        || oldStatus == OrderStatus.SHIPPING
+                )
+        ) {
+
+            restoreStock(orderID);
+        }
+
+        // ===== UPDATE STATUS =====
         order.setStatus(status);
+
         orderRepository.save(order);
 
-        // 🔥 Sync payment (COD only)
+        // ===== SYNC PAYMENT =====
         paymentService.syncPaymentWithOrder(order);
 
-        // Đồng bộ totalSpent
+        // ===== CHỈ CỘNG TOTAL KHI DELIVERED =====
+        if (
+                status == OrderStatus.DELIVERED
+                || status == OrderStatus.CANCELLED
+        ) {
+
         syncUserTotalSpent(order.getUserID());
 
-        // ===== UPDATE MEMBERSHIP =====
         membershipLevelService.updateUserMembershipLevel(
                 order.getUserID()
         );
+        }
 
         return toAdminResponse(order);
     }
 
     // ===== CLEAR CART =====
-    private void clearPurchasedItemsFromCart(Integer userID, CheckoutRequest request) {
+    private void clearPurchasedItemsFromCart(
+            Integer userID,
+            CheckoutRequest request
+    ) {
 
-        Cart cart = cartRepository.findByUserID(userID).orElse(null);
+        Cart cart =
+                cartRepository.findByUserID(userID)
+                        .orElse(null);
+
         if (cart == null) return;
 
         for (CheckoutItemRequest item : request.getItems()) {
+
             cartItemRepository
-                    .findByCartIDAndProductID(cart.getCartID(), item.getProductID())
+                    .findByCartIDAndProductID(
+                            cart.getCartID(),
+                            item.getProductID()
+                    )
                     .ifPresent(cartItemRepository::delete);
         }
     }
@@ -212,92 +448,184 @@ public class OrderService {
 
     // ===== ADMIN VIEW =====
     public List<OrderAdminResponse> getAllOrdersForAdmin() {
+
         return orderRepository.findAll()
                 .stream()
-                .sorted((a, b) -> b.getCreatedDate().compareTo(a.getCreatedDate()))
+                .sorted(
+                        (a, b) ->
+                                b.getCreatedDate()
+                                        .compareTo(
+                                                a.getCreatedDate()
+                                        )
+                )
                 .map(this::toAdminResponse)
                 .toList();
     }
 
-    public OrderAdminResponse getOrderDetailForAdmin(Integer orderID) {
+    public OrderAdminResponse getOrderDetailForAdmin(
+            Integer orderID
+    ) {
+
         Order order = orderRepository.findById(orderID)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderID));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Order not found with id: "
+                                        + orderID
+                        )
+                );
 
         return toAdminResponse(order);
     }
 
     // ===== USER VIEW =====
-    public List<OrderAdminResponse> getMyOrders(String username) {
+    public List<OrderAdminResponse> getMyOrders(
+            String username
+    ) {
 
-        User user = userRepository.findByUsername(username);
+        User user =
+                userRepository.findByUsername(username);
+
         if (user == null) {
-            throw new ResourceNotFoundException("User not found");
+            throw new ResourceNotFoundException(
+                    "User not found"
+            );
         }
 
-        return orderRepository.findByUserID(user.getUserId())
+        return orderRepository.findByUserID(
+                        user.getUserId()
+                )
                 .stream()
-                .sorted((a, b) -> b.getCreatedDate().compareTo(a.getCreatedDate()))
+                .sorted(
+                        (a, b) ->
+                                b.getCreatedDate()
+                                        .compareTo(
+                                                a.getCreatedDate()
+                                        )
+                )
                 .map(this::toAdminResponse)
                 .toList();
     }
 
     // ===== MAP RESPONSE =====
-  private OrderAdminResponse toAdminResponse(Order order) {
+    private OrderAdminResponse toAdminResponse(
+            Order order
+    ) {
 
-    List<OrderDetail> details =
-            orderDetailRepository.findByOrderID(order.getOrderID());
+        List<OrderDetail> details =
+                orderDetailRepository.findByOrderID(
+                        order.getOrderID()
+                );
 
-    List<OrderDetailResponse> itemResponses = details.stream()
-            .map(detail -> {
-                OrderDetailResponse item = new OrderDetailResponse();
-                item.setOrderDetailID(detail.getOrderDetailID());
-                item.setProductID(detail.getProductID());
-                item.setProductName(detail.getProductName());
-                item.setImage(detail.getImage());
-                item.setQuantity(detail.getQuantity());
-                item.setPrice(detail.getPrice());
-                item.setSubtotal(detail.getSubtotal());
-                return item;
-            })
-            .toList();
+        List<OrderDetailResponse> itemResponses =
+                details.stream()
+                        .map(detail -> {
 
-    OrderAdminResponse response = new OrderAdminResponse();
-    response.setOrderID(order.getOrderID());
-    response.setUserID(order.getUserID());
-    response.setOrderCode(order.getOrderCode());
-    response.setCreatedDate(order.getCreatedDate());
-    response.setTotalAmount(order.getTotalAmount());
-    response.setStatus(order.getStatus().name());
-    response.setCustomerName(order.getCustomerName());
-    response.setPhone(order.getPhone());
-    response.setAddress(order.getAddress());
-    response.setPaymentMethod(order.getPaymentMethod().name());
-    response.setItems(itemResponses);
+                            OrderDetailResponse item =
+                                    new OrderDetailResponse();
 
-    // ===== PAYMENT =====
-    Payment payment = paymentRepository.findByOrderID(order.getOrderID())
-            .orElse(null);
+                            item.setOrderDetailID(
+                                    detail.getOrderDetailID()
+                            );
 
-    if (payment != null) {
-        PaymentResponse paymentResponse = new PaymentResponse();
-        paymentResponse.setPaymentID(payment.getPaymentID());
-        paymentResponse.setMethod(payment.getMethod().name());
-        paymentResponse.setStatus(payment.getStatus().name());
-        paymentResponse.setAmount(payment.getAmount());
-        paymentResponse.setPaymentDate(payment.getPaymentDate());
-        paymentResponse.setTransactionCode(payment.getTransactionCode());
+                            item.setProductID(
+                                    detail.getProductID()
+                            );
 
-        response.setPayment(paymentResponse);
-    } else {
-        response.setPayment(null); // optional
+                            item.setProductName(
+                                    detail.getProductName()
+                            );
+
+                            item.setImage(
+                                    detail.getImage()
+                            );
+
+                            item.setQuantity(
+                                    detail.getQuantity()
+                            );
+
+                            item.setPrice(
+                                    detail.getPrice()
+                            );
+
+                            item.setSubtotal(
+                                    detail.getSubtotal()
+                            );
+
+                            return item;
+                        })
+                        .toList();
+
+        OrderAdminResponse response =
+                new OrderAdminResponse();
+
+        response.setOrderID(order.getOrderID());
+        response.setUserID(order.getUserID());
+        response.setOrderCode(order.getOrderCode());
+        response.setCreatedDate(order.getCreatedDate());
+        response.setTotalAmount(order.getTotalAmount());
+        response.setStatus(order.getStatus().name());
+
+        response.setCustomerName(
+                order.getCustomerName()
+        );
+
+        response.setPhone(order.getPhone());
+
+        response.setAddress(order.getAddress());
+
+        response.setPaymentMethod(
+                order.getPaymentMethod().name()
+        );
+
+        response.setItems(itemResponses);
+
+        // ===== PAYMENT =====
+        Payment payment =
+                paymentRepository.findByOrderID(
+                        order.getOrderID()
+                ).orElse(null);
+
+        if (payment != null) {
+
+            PaymentResponse paymentResponse =
+                    new PaymentResponse();
+
+            paymentResponse.setPaymentID(
+                    payment.getPaymentID()
+            );
+
+            paymentResponse.setMethod(
+                    payment.getMethod().name()
+            );
+
+            paymentResponse.setStatus(
+                    payment.getStatus().name()
+            );
+
+            paymentResponse.setAmount(
+                    payment.getAmount()
+            );
+
+            paymentResponse.setPaymentDate(
+                    payment.getPaymentDate()
+            );
+
+            paymentResponse.setTransactionCode(
+                    payment.getTransactionCode()
+            );
+
+            response.setPayment(paymentResponse);
+
+        } else {
+
+            response.setPayment(null);
+        }
+
+        return response;
     }
 
-    // ===== RETURN CUỐI =====
-    return response;
-}
-
     // ===== SYNC USER TOTAL =====
-   private void syncUserTotalSpent(Integer userID) {
+    private void syncUserTotalSpent(Integer userID) {
 
         BigDecimal totalSpent =
                 orderRepository.calculateTotalSpentByUserID(
