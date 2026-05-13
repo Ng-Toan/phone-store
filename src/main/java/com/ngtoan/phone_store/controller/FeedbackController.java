@@ -107,4 +107,10 @@ public class FeedbackController {
 
         return ResponseEntity.ok("Feedback deleted successfully");
     }
+
+    // ADMIN - Lấy tất cả feedback
+        @GetMapping("/admin/all")
+        public ResponseEntity<List<FeedbackResponse>> getAllFeedbacks() {
+        return ResponseEntity.ok(feedbackService.getAllFeedbacks());
+        }
 }

@@ -44,6 +44,9 @@ public class SecurityConfig {
 
                 // FEEDBACK - ai cũng được xem
                 .requestMatchers(HttpMethod.GET, "/api/feedback/product/**").permitAll()
+                
+                // FEEDBACK - admin quản lý tất cả feedback
+                .requestMatchers(HttpMethod.GET, "/api/feedback/admin/**").hasRole("ADMIN")
 
                 // FEEDBACK - user đăng nhập mới được đánh giá
                 .requestMatchers(HttpMethod.POST, "/api/feedback/add").hasRole("USER")

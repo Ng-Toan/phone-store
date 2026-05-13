@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface FeedbackRepository extends JpaRepository<Feedback, Integer> {
+    List<Feedback> findAllByOrderByCreatedDateDesc();
 
     List<Feedback> findByProductIDOrderByCreatedDateDesc(Integer productID);
 

@@ -65,6 +65,15 @@ public class FeedbackService {
                 .toList();
     }
 
+    // ADMIN - Lấy tất cả feedback
+        public List<FeedbackResponse> getAllFeedbacks() {
+            return feedbackRepository
+                    .findAllByOrderByCreatedDateDesc()
+                    .stream()
+                    .map(this::buildFeedbackResponse)
+                    .toList();
+        }
+
     // READ - Lọc feedback theo số sao
     public List<FeedbackResponse> getFeedbackByProductAndRating(Integer productId, Integer rating) {
 
@@ -142,12 +151,17 @@ public class FeedbackService {
 
     private FeedbackResponse buildFeedbackResponse(Feedback feedback) {
 
-        String userFullName = userRepository.findById(feedback.getUserID())
-                .map(u -> u.getFullName())
+           String userFullName = userRepository.findById(feedback.getUserID())
+            .map(u -> u.getFullName())
+            .orElse("Unknown");
+
+        String productName = productRepository.findById(feedback.getProductID())
+                .map(p -> p.getName())
                 .orElse("Unknown");
 
         FeedbackResponse response = feedbackMapper.toResponse(feedback);
         response.setUserFullName(userFullName);
+        response.setProductName(productName);
 
         return response;
     }

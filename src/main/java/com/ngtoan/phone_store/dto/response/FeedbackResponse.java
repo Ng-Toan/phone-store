@@ -14,6 +14,7 @@ public class FeedbackResponse {
     Integer userID;
     String userFullName;
     Integer productID;
+    String productName;
     String comment;
     Integer rating;
     LocalDateTime createdDate;
