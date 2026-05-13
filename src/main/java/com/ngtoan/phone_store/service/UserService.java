@@ -1,18 +1,19 @@
 package com.ngtoan.phone_store.service;
 
+import com.ngtoan.phone_store.dto.request.LoginRequest;
+import com.ngtoan.phone_store.dto.request.UserCreationRequest;
+import com.ngtoan.phone_store.dto.request.UserUpdateRequest;
+import com.ngtoan.phone_store.dto.response.UserProfileResponse;
 import com.ngtoan.phone_store.entity.User;
+import com.ngtoan.phone_store.exception.BadRequestException;
+import com.ngtoan.phone_store.exception.ForbiddenException;
+import com.ngtoan.phone_store.exception.ResourceNotFoundException;
+import com.ngtoan.phone_store.exception.UnauthorizedException;
 import com.ngtoan.phone_store.repository.UserRepository;
 import com.ngtoan.phone_store.util.JwtUtil;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-
-import com.ngtoan.phone_store.dto.request.LoginRequest;
-import com.ngtoan.phone_store.dto.request.UserCreationRequest;
-import com.ngtoan.phone_store.dto.request.UserUpdateRequest;
-import com.ngtoan.phone_store.dto.response.UserProfileResponse;
-import com.ngtoan.phone_store.exception.*;
-import com.ngtoan.phone_store.mapper.UserMapper;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +29,6 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final UserMapper userMapper;
     private final EmailVerificationService emailVerificationService;
 
     // =========================================================
@@ -41,7 +40,7 @@ public class UserService {
         return emailVerificationService.createPendingRegistration(dto);
     }
 
-    // Login (JWT)
+    // Login JWT
     public String login(LoginRequest dto) {
 
         User user = userRepository.findByUsername(dto.getUsername());
@@ -76,19 +75,31 @@ public class UserService {
         return "Password changed successfully";
     }
 
-    // Get profile
+    // Get user by id
     public User getUserById(int id) {
         return userRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("User not found with id: " + id));
     }
 
-    // Update profile
+    // User update profile
+    // Chỉ cho user sửa fullName, email, phone
+    // Không cho user tự sửa roleId, status, levelId, totalSpent
     public User updateUser(int id, UserUpdateRequest dto) {
 
         User user = getUserById(id);
 
-        userMapper.updateUser(user, dto);
+        if (dto.getFullName() != null) {
+            user.setFullName(dto.getFullName());
+        }
+
+        if (dto.getEmail() != null) {
+            user.setEmail(dto.getEmail());
+        }
+
+        if (dto.getPhone() != null) {
+            user.setPhone(dto.getPhone());
+        }
 
         return userRepository.save(user);
     }
@@ -100,12 +111,14 @@ public class UserService {
 
         if (user == null) {
             throw new ResourceNotFoundException(
-                    "User not found with username: " + username);
+                    "User not found with username: " + username
+            );
         }
 
         return user;
     }
 
+    // User profile response
     public UserProfileResponse getMyProfile(String username) {
 
         User user = userRepository.findByUsername(username);
@@ -115,6 +128,7 @@ public class UserService {
         }
 
         UserProfileResponse response = new UserProfileResponse();
+
         response.setUserId(user.getUserId());
         response.setUsername(user.getUsername());
         response.setFullName(user.getFullName());
@@ -122,59 +136,16 @@ public class UserService {
         response.setPhone(user.getPhone());
         response.setRoleId(user.getRoleId());
         response.setLevelId(user.getLevelId());
-        response.setTotalSpent(user.getTotalSpent() == null ? BigDecimal.ZERO : user.getTotalSpent());
+
+        response.setTotalSpent(
+                user.getTotalSpent() == null
+                        ? BigDecimal.ZERO
+                        : user.getTotalSpent()
+        );
+
         response.setStatus(user.getStatus());
         response.setCreatedDate(user.getCreatedDate());
 
         return response;
-    }
-
-    // =========================================================
-    // ADMIN FUNCTIONS
-    // =========================================================
-
-    // Get all users
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
-    }
-
-    // Search user by name
-    public List<User> searchUserByName(String name) {
-
-        List<User> users =
-                userRepository.findByFullNameContainingIgnoreCase(name);
-
-        if (users.isEmpty()) {
-            throw new ResourceNotFoundException(
-                    "No users found with name: " + name);
-        }
-
-        return users;
-    }
-
-    // Admin update user
-    public User adminUpdateUser(int id, UserUpdateRequest dto) {
-
-        User user = getUserById(id);
-
-        userMapper.updateUser(user, dto);
-
-        if (dto.getRoleId() != null) {
-            user.setRoleId(dto.getRoleId());
-        }
-
-        if (dto.getStatus() != null) {
-            user.setStatus(dto.getStatus());
-        }
-
-        return userRepository.save(user);
-    }
-
-    // Delete user
-    public void deleteUser(int id) {
-
-        User user = getUserById(id);
-
-        userRepository.delete(user);
     }
 }
