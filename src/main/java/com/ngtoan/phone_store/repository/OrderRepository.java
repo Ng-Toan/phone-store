@@ -13,43 +13,37 @@ import org.springframework.data.repository.query.Param;
 
 public interface OrderRepository extends JpaRepository<Order, Integer> {
 
-    List<Order> findByUserID(Integer userID);
+        List<Order> findByUserID(Integer userID);
 
-    @Query(
-            value = """
-                    SELECT ISNULL(SUM(TotalAmount), 0)
-                    FROM [Order]
-                    WHERE UserID = :userID
-                      AND Status IN (1, 2, 3)
-                    """,
-            nativeQuery = true
-    )
-    BigDecimal calculateTotalSpentByUserID(
-            @Param("userID") Integer userID
-    );
+        @Query(value = """
+                        SELECT ISNULL(SUM(TotalAmount), 0)
+                        FROM [Order]
+                        WHERE UserID = :userID
+                          AND Status IN (1, 2, 3)
+                        """, nativeQuery = true)
+        BigDecimal calculateTotalSpentByUserID(
+                        @Param("userID") Integer userID);
 
-    long countByCreatedDateBetween(LocalDateTime start, LocalDateTime end);
+        long countByCreatedDateBetween(LocalDateTime start, LocalDateTime end);
 
-long countByStatus(OrderStatus status);
+        long countByStatus(OrderStatus status);
 
-long countByStatusAndCreatedDateBetween(
-        OrderStatus status,
-        LocalDateTime start,
-        LocalDateTime end
-);
+        long countByStatusAndCreatedDateBetween(
+                        OrderStatus status,
+                        LocalDateTime start,
+                        LocalDateTime end);
 
-List<Order> findTop4ByOrderByCreatedDateDesc();
+        List<Order> findTop4ByOrderByCreatedDateDesc();
 
-@Query("""
-    SELECT COALESCE(SUM(o.totalAmount), 0)
-    FROM Order o
-    WHERE o.status = :status
-      AND o.createdDate >= :start
-      AND o.createdDate < :end
-""")
-BigDecimal sumRevenueByStatusAndDateRange(
-        @Param("status") OrderStatus status,
-        @Param("start") LocalDateTime start,
-        @Param("end") LocalDateTime end
-);
+        @Query("""
+                            SELECT COALESCE(SUM(o.totalAmount), 0)
+                            FROM Order o
+                            WHERE o.status = :status
+                              AND o.createdDate >= :start
+                              AND o.createdDate < :end
+                        """)
+        BigDecimal sumRevenueByStatusAndDateRange(
+                        @Param("status") OrderStatus status,
+                        @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
 }
