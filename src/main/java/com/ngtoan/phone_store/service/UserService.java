@@ -21,6 +21,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -41,29 +42,29 @@ public class UserService {
     }
 
     // Login JWT
-public String login(LoginRequest dto) {
+    public String login(LoginRequest dto) {
 
-    User user = userRepository.findByUsername(dto.getUsername());
+        User user = userRepository.findByUsername(dto.getUsername());
 
-    if (user == null) {
-        throw new UnauthorizedException("Invalid username or password");
+        if (user == null) {
+            throw new UnauthorizedException("Invalid username or password");
+        }
+
+        // Bắt buộc tên đăng nhập phải đúng chữ hoa/thường như lúc đăng ký
+        if (!user.getUsername().equals(dto.getUsername())) {
+            throw new UnauthorizedException("Invalid username or password");
+        }
+
+        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
+            throw new UnauthorizedException("Invalid username or password");
+        }
+
+        if (!Boolean.TRUE.equals(user.getStatus())) {
+            throw new ForbiddenException("Please verify your email before login");
+        }
+
+        return JwtUtil.generateToken(user.getUsername());
     }
-
-    // Bắt buộc tên đăng nhập phải đúng chữ hoa/thường như lúc đăng ký
-    if (!user.getUsername().equals(dto.getUsername())) {
-        throw new UnauthorizedException("Invalid username or password");
-    }
-
-    if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
-        throw new UnauthorizedException("Invalid username or password");
-    }
-
-    if (!Boolean.TRUE.equals(user.getStatus())) {
-        throw new ForbiddenException("Please verify your email before login");
-    }
-
-    return JwtUtil.generateToken(user.getUsername());
-}
 
     // Change password
     public String changePassword(String username, String oldPassword, String newPassword) {
@@ -92,34 +93,41 @@ public String login(LoginRequest dto) {
     }
 
     // User update profile
-    // Chỉ cho user sửa fullName, email, phone
-    // Không cho user tự sửa roleId, status, levelId, totalSpent
+    // User chỉ được sửa: fullName, phone, gender, birthDate/birthday, address/defaultAddress.
+    // Email không được sửa vì email đã xác thực lúc tạo tài khoản.
+    // Không cho user tự sửa roleId, status, levelId, totalSpent.
     public User updateUser(int id, UserUpdateRequest dto) {
 
         User user = getUserById(id);
 
         if (dto.getFullName() != null) {
-            user.setFullName(dto.getFullName());
+            user.setFullName(dto.getFullName().trim());
         }
 
-        if (dto.getEmail() != null) {
-            user.setEmail(dto.getEmail());
-        }
+        // Không update email ở profile user, kể cả frontend cố tình gửi email lên.
 
         if (dto.getPhone() != null) {
-            user.setPhone(dto.getPhone());
+            user.setPhone(dto.getPhone().trim());
         }
 
         if (dto.getGender() != null) {
-        user.setGender(dto.getGender());
+            user.setGender(dto.getGender().trim());
         }
 
-        if (dto.getBirthDate() != null) {
-            user.setBirthDate(dto.getBirthDate());
+        LocalDate newBirthDate = dto.getBirthday() != null
+                ? dto.getBirthday()
+                : dto.getBirthDate();
+
+        if (newBirthDate != null) {
+            user.setBirthDate(newBirthDate);
         }
 
-        if (dto.getAddress() != null) {
-            user.setAddress(dto.getAddress());
+        String newAddress = dto.getDefaultAddress() != null
+                ? dto.getDefaultAddress()
+                : dto.getAddress();
+
+        if (newAddress != null) {
+            user.setAddress(newAddress.trim());
         }
 
         return userRepository.save(user);
@@ -148,6 +156,11 @@ public String login(LoginRequest dto) {
             throw new ResourceNotFoundException("User not found");
         }
 
+        return toUserProfileResponse(user);
+    }
+
+    public UserProfileResponse toUserProfileResponse(User user) {
+
         UserProfileResponse response = new UserProfileResponse();
 
         response.setUserId(user.getUserId());
@@ -156,8 +169,13 @@ public String login(LoginRequest dto) {
         response.setEmail(user.getEmail());
         response.setPhone(user.getPhone());
         response.setGender(user.getGender());
+
+        // Trả cả 2 kiểu tên để frontend cũ/mới đều đọc được
         response.setBirthDate(user.getBirthDate());
+        response.setBirthday(user.getBirthDate());
         response.setAddress(user.getAddress());
+        response.setDefaultAddress(user.getAddress());
+
         response.setRoleId(user.getRoleId());
         response.setLevelId(user.getLevelId());
 
@@ -172,5 +190,4 @@ public String login(LoginRequest dto) {
 
         return response;
     }
-
 }

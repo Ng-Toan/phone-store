@@ -24,8 +24,15 @@ public class UserProfileResponse {
     String email;
     String phone;
     String gender;
+
+    // Field cũ theo backend/database
     LocalDate birthDate;
     String address;
+
+    // Field mới theo frontend profile
+    LocalDate birthday;
+    String defaultAddress;
+
     Integer roleId;
     Integer levelId;
     BigDecimal totalSpent;

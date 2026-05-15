@@ -52,7 +52,7 @@ public class UserController {
     }
 
     // user xem profile dạng entity
-    // Nếu frontend đang dùng /users/profile thì giữ API này
+    // Nếu frontend cũ đang dùng /users/profile thì giữ API này
     @GetMapping("/profile")
     public User getProfile(Authentication authentication) {
 
@@ -62,7 +62,7 @@ public class UserController {
     }
 
     // user xem profile dạng response an toàn hơn
-    // Khuyên frontend dùng API này
+    // Frontend profile nên dùng API này
     @GetMapping("/me")
     public UserProfileResponse getMyProfile(Authentication authentication) {
 
@@ -72,9 +72,10 @@ public class UserController {
     }
 
     // user update profile
-    // Chỉ update fullName, email, phone ở UserService
+    // Chỉ update fullName, phone, gender, birthDate/birthday, address/defaultAddress.
+    // Không update email vì email đã xác thực lúc tạo tài khoản.
     @PutMapping("/profile")
-    public User updateProfile(
+    public UserProfileResponse updateProfile(
             Authentication authentication,
             @Valid @RequestBody UserUpdateRequest request
     ) {
@@ -83,10 +84,12 @@ public class UserController {
 
         User user = userService.findByUsername(username);
 
-        return userService.updateUser(
+        User updatedUser = userService.updateUser(
                 user.getUserId(),
                 request
         );
+
+        return userService.toUserProfileResponse(updatedUser);
     }
 
     // user đổi password
