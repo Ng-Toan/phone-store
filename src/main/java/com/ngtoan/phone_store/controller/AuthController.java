@@ -1,22 +1,28 @@
 package com.ngtoan.phone_store.controller;
 
+import com.ngtoan.phone_store.dto.request.GoogleLoginRequest;
 import com.ngtoan.phone_store.dto.request.LoginRequest;
 import com.ngtoan.phone_store.entity.User;
+import com.ngtoan.phone_store.service.GoogleAuthService;
 import com.ngtoan.phone_store.service.UserService;
 import com.ngtoan.phone_store.util.JwtUtil;
+
+import jakarta.validation.Valid;
+
+import lombok.RequiredArgsConstructor;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+    private final GoogleAuthService googleAuthService;
 
     @PostMapping("/login")
     public Map<String, Object> login(@RequestBody LoginRequest request) {
@@ -32,11 +38,20 @@ public class AuthController {
         res.put("userId", user.getUserId());
         res.put("email", user.getEmail());
         res.put("phone", user.getPhone());
+
         String roleName = user.getRoleId() == 1 ? "ADMIN" : "USER";
         res.put("role", roleName);
 
         return res;
     }
+
+    @PostMapping("/google")
+    public Map<String, Object> loginGoogle(
+            @Valid @RequestBody GoogleLoginRequest request
+    ) {
+        return googleAuthService.loginWithGoogle(request.getIdToken());
+    }
+
     @PostMapping("/test-token")
     public String testToken(@RequestBody String token) {
         return JwtUtil.extractUsername(token);
