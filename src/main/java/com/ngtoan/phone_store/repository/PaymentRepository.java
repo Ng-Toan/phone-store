@@ -46,4 +46,6 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
         ORDER BY p.createdDate DESC
     """)
     List<AdminPaymentResponse> getAllAdminPayments();
+
+    long countByStatus(PaymentStatus status);
 }

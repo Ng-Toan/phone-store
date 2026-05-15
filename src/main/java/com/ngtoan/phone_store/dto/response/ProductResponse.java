@@ -21,6 +21,7 @@ public class ProductResponse {
      Integer status;
      String description;
      Integer categoryID;
+    Integer supplierID;
     String categoryName;
     String brandName;
     String supplierName;

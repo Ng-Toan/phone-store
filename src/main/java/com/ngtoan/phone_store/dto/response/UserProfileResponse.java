@@ -1,6 +1,7 @@
 package com.ngtoan.phone_store.dto.response;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import lombok.AccessLevel;
@@ -22,6 +23,9 @@ public class UserProfileResponse {
     String fullName;
     String email;
     String phone;
+    String gender;
+    LocalDate birthDate;
+    String address;
     Integer roleId;
     Integer levelId;
     BigDecimal totalSpent;

@@ -41,20 +41,29 @@ public class UserService {
     }
 
     // Login JWT
-    public String login(LoginRequest dto) {
+public String login(LoginRequest dto) {
 
-        User user = userRepository.findByUsername(dto.getUsername());
+    User user = userRepository.findByUsername(dto.getUsername());
 
-        if (user == null || !passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
-            throw new UnauthorizedException("Invalid username or password");
-        }
-
-        if (!Boolean.TRUE.equals(user.getStatus())) {
-            throw new ForbiddenException("Please verify your email before login");
-        }
-
-        return JwtUtil.generateToken(user.getUsername());
+    if (user == null) {
+        throw new UnauthorizedException("Invalid username or password");
     }
+
+    // Bắt buộc tên đăng nhập phải đúng chữ hoa/thường như lúc đăng ký
+    if (!user.getUsername().equals(dto.getUsername())) {
+        throw new UnauthorizedException("Invalid username or password");
+    }
+
+    if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
+        throw new UnauthorizedException("Invalid username or password");
+    }
+
+    if (!Boolean.TRUE.equals(user.getStatus())) {
+        throw new ForbiddenException("Please verify your email before login");
+    }
+
+    return JwtUtil.generateToken(user.getUsername());
+}
 
     // Change password
     public String changePassword(String username, String oldPassword, String newPassword) {
@@ -101,6 +110,18 @@ public class UserService {
             user.setPhone(dto.getPhone());
         }
 
+        if (dto.getGender() != null) {
+        user.setGender(dto.getGender());
+        }
+
+        if (dto.getBirthDate() != null) {
+            user.setBirthDate(dto.getBirthDate());
+        }
+
+        if (dto.getAddress() != null) {
+            user.setAddress(dto.getAddress());
+        }
+
         return userRepository.save(user);
     }
 
@@ -134,6 +155,9 @@ public class UserService {
         response.setFullName(user.getFullName());
         response.setEmail(user.getEmail());
         response.setPhone(user.getPhone());
+        response.setGender(user.getGender());
+        response.setBirthDate(user.getBirthDate());
+        response.setAddress(user.getAddress());
         response.setRoleId(user.getRoleId());
         response.setLevelId(user.getLevelId());
 
@@ -148,4 +172,5 @@ public class UserService {
 
         return response;
     }
+
 }

@@ -2,15 +2,16 @@ package com.ngtoan.phone_store.service;
 
 import com.ngtoan.phone_store.dto.request.MembershipLevelRequest;
 import com.ngtoan.phone_store.dto.response.MembershipLevelResponse;
-import com.ngtoan.phone_store.mapper.MembershipLevelMapper;
 import com.ngtoan.phone_store.dto.response.UserMembershipResponse;
+import com.ngtoan.phone_store.entity.MembershipHistory;
 import com.ngtoan.phone_store.entity.MembershipLevel;
 import com.ngtoan.phone_store.entity.User;
 import com.ngtoan.phone_store.exception.BadRequestException;
 import com.ngtoan.phone_store.exception.ResourceNotFoundException;
+import com.ngtoan.phone_store.mapper.MembershipLevelMapper;
+import com.ngtoan.phone_store.repository.MembershipHistoryRepository;
 import com.ngtoan.phone_store.repository.MembershipLevelRepository;
 import com.ngtoan.phone_store.repository.UserRepository;
-
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -29,15 +30,16 @@ public class MembershipLevelService {
     private final MembershipLevelRepository membershipLevelRepository;
     private final UserRepository userRepository;
     private final MembershipLevelMapper membershipLevelMapper;
+    private final MembershipHistoryRepository membershipHistoryRepository;
 
     // USER / ADMIN - Lấy danh sách cấp độ
     public List<MembershipLevelResponse> getAllLevels() {
-    return membershipLevelRepository.findAll()
-            .stream()
-            .sorted(Comparator.comparing(MembershipLevel::getMinSpent))
-            .map(membershipLevelMapper::toResponse)
-            .toList();
-}
+        return membershipLevelRepository.findAll()
+                .stream()
+                .sorted(Comparator.comparing(MembershipLevel::getMinSpent))
+                .map(membershipLevelMapper::toResponse)
+                .toList();
+    }
 
     // ADMIN - Thêm cấp độ
     public MembershipLevelResponse createLevel(MembershipLevelRequest request) {
@@ -58,7 +60,7 @@ public class MembershipLevelService {
 
         membershipLevelRepository.save(level);
 
-        // Sau khi thêm level mới, có thể user nào đó đủ điều kiện lên level mới
+        // Không lưu MembershipHistory ở đây để tránh tạo lịch sử giả hàng loạt
         recalculateAllUsersMembership();
 
         return membershipLevelMapper.toResponse(level);
@@ -92,7 +94,7 @@ public class MembershipLevelService {
 
         membershipLevelRepository.save(level);
 
-        // Nếu admin sửa MinSpent, level user có thể thay đổi
+        // Không lưu MembershipHistory ở đây để tránh spam lịch sử khi admin sửa mức chi tiêu
         recalculateAllUsersMembership();
 
         return membershipLevelMapper.toResponse(level);
@@ -110,7 +112,6 @@ public class MembershipLevelService {
             throw new BadRequestException("Cannot delete the last membership level");
         }
 
-        // Nếu user đang dùng level này, set null trước để tránh lỗi khóa ngoại
         List<User> usersUsingThisLevel = userRepository.findByLevelId(levelID);
 
         for (User user : usersUsingThisLevel) {
@@ -121,7 +122,7 @@ public class MembershipLevelService {
 
         membershipLevelRepository.delete(level);
 
-        // Sau khi xóa level, tính lại level phù hợp cho toàn bộ user
+        // Không lưu MembershipHistory ở đây vì đây là tính lại do admin xóa hạng
         recalculateAllUsersMembership();
     }
 
@@ -134,7 +135,8 @@ public class MembershipLevelService {
             throw new ResourceNotFoundException("User not found");
         }
 
-        MembershipLevel level = updateUserMembershipLevel(user.getUserId());
+        // User chỉ xem hạng thì không nên tạo lịch sử lên hạng
+        MembershipLevel level = updateUserMembershipLevelWithoutHistory(user.getUserId());
 
         BigDecimal totalSpent = getSafeTotalSpent(user);
 
@@ -142,8 +144,20 @@ public class MembershipLevelService {
     }
 
     // OrderService gọi hàm này sau khi admin cập nhật trạng thái order
+    // Hàm này CÓ lưu lịch sử nếu user thật sự lên hạng
     public MembershipLevel updateUserMembershipLevel(Integer userID) {
+        return updateUserMembershipLevelInternal(userID, true);
+    }
 
+    // Dùng cho trường hợp chỉ cần tính lại hạng nhưng KHÔNG lưu lịch sử
+    public MembershipLevel updateUserMembershipLevelWithoutHistory(Integer userID) {
+        return updateUserMembershipLevelInternal(userID, false);
+    }
+
+    private MembershipLevel updateUserMembershipLevelInternal(
+            Integer userID,
+            boolean saveHistory
+    ) {
         User user = userRepository.findById(userID)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "User not found with id: " + userID
@@ -153,14 +167,34 @@ public class MembershipLevelService {
 
         MembershipLevel bestLevel = findBestLevelByTotalSpent(totalSpent);
 
-        user.setLevelId(bestLevel.getLevelID());
+        Integer oldLevelId = user.getLevelId();
+        Integer newLevelId = bestLevel.getLevelID();
 
+        // Nếu hạng không đổi thì không cần save, không cần lưu history
+        if (oldLevelId != null && oldLevelId.equals(newLevelId)) {
+            return bestLevel;
+        }
+
+        boolean isUpgrade = isUpgradeLevel(oldLevelId, newLevelId);
+
+        user.setLevelId(newLevelId);
         userRepository.save(user);
+
+        if (saveHistory && isUpgrade) {
+            MembershipHistory history = MembershipHistory.builder()
+                    .userID(user.getUserId())
+                    .fromLevelID(oldLevelId)
+                    .toLevelID(newLevelId)
+                    .build();
+
+            membershipHistoryRepository.save(history);
+        }
 
         return bestLevel;
     }
 
     // ADMIN - Tính lại level toàn bộ user dựa trên User.TotalSpent
+    // Không lưu MembershipHistory ở đây để tránh dashboard bị đầy lịch sử giả
     public void recalculateAllUsersMembership() {
 
         List<User> users = userRepository.findAll();
@@ -197,6 +231,30 @@ public class MembershipLevelService {
                         .orElseThrow(() -> new ResourceNotFoundException(
                                 "No membership level found"
                         )));
+    }
+
+    // Chỉ xem là "lên hạng" nếu minSpent của hạng mới cao hơn hạng cũ
+    private boolean isUpgradeLevel(Integer oldLevelId, Integer newLevelId) {
+
+        if (oldLevelId == null || newLevelId == null) {
+            return false;
+        }
+
+        if (oldLevelId.equals(newLevelId)) {
+            return false;
+        }
+
+        MembershipLevel oldLevel = membershipLevelRepository.findById(oldLevelId)
+                .orElse(null);
+
+        MembershipLevel newLevel = membershipLevelRepository.findById(newLevelId)
+                .orElse(null);
+
+        if (oldLevel == null || newLevel == null) {
+            return false;
+        }
+
+        return newLevel.getMinSpent().compareTo(oldLevel.getMinSpent()) > 0;
     }
 
     private UserMembershipResponse toUserMembershipResponse(

@@ -82,6 +82,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/payments").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/payments/**").hasRole("ADMIN")
 
+                // SUPPLIER - ADMIN quản lý nhà cung cấp
+                .requestMatchers("/suppliers/**").hasRole("ADMIN")
+
+                // IMPORT - ADMIN quản lý nhập hàng
+                .requestMatchers("/imports/**").hasRole("ADMIN")
+
                 // USER
                 .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")
                 .requestMatchers("/users/me").hasAnyRole("USER", "ADMIN")

@@ -21,4 +21,18 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Integer> {
     Long countByProductIDAndRating(@Param("productID") Integer productID, @Param("rating") Integer rating);
 
     List<Feedback> findByUserID(Integer userID);
+
+    @Query(value = """
+                SELECT TOP 1
+                    f.FeedbackID,
+                    f.ProductID,
+                    p.Name,
+                    f.Rating,
+                    f.Comment,
+                    f.CreatedDate
+                FROM Feedback f
+                LEFT JOIN Product p ON f.ProductID = p.ProductID
+                ORDER BY f.CreatedDate DESC
+            """, nativeQuery = true)
+    Object findLatestReviewWithProductName();
 }

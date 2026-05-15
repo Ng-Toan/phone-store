@@ -14,4 +14,5 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     List<User> findByFullNameContainingIgnoreCase(String name);
     List<User> findByLevelId(Integer levelId);
     boolean existsByLevelId(Integer levelId);
+    long countByLevelId(Integer levelId);
 }

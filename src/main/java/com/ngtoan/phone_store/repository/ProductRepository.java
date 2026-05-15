@@ -22,9 +22,22 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     // 🔹 Search theo tên (LIKE %name%)
     List<Product> findByNameContainingIgnoreCase(String name);
 
-        // 🔥 THÊM CÁI NÀY (QUAN TRỌNG)
+    // 🔥 THÊM CÁI NÀY (QUAN TRỌNG)
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Product p WHERE p.productID = :id")
     Product findByIdForUpdate(@Param("id") Integer id);
+
+    long countByStatus(Integer status);
+
+    long countByQuantityLessThanEqualAndStatus(Integer quantity, Integer status);
+
+    @Query("""
+                SELECT p.productID, p.name, p.quantity
+                FROM Product p
+                WHERE p.status = 1
+                  AND p.quantity <= :limit
+                ORDER BY p.quantity ASC
+            """)
+    List<Object[]> findLowStockProducts(@Param("limit") Integer limit);
 
 }

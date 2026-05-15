@@ -7,8 +7,8 @@ import lombok.Data;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-
 
 @Entity
 @Table(name = "[User]")
@@ -37,11 +37,20 @@ public class User {
     @Column(name = "Phone", length = 20, nullable = false)
     String phone;
 
+    @Column(name = "Gender", length = 20)
+    String gender;
+
+    @Column(name = "BirthDate")
+    LocalDate birthDate;
+
+    @Column(name = "Address", length = 255)
+    String address;
+
     @Column(name = "RoleID", nullable = false)
     int roleId;
 
     @Column(name = "LevelID")
-    Integer levelId; 
+    Integer levelId;
 
     @Column(name = "TotalSpent")
     BigDecimal totalSpent;

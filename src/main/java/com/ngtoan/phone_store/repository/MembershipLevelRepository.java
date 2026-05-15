@@ -19,4 +19,6 @@ public interface MembershipLevelRepository extends JpaRepository<MembershipLevel
     Optional<MembershipLevel> findTopByMinSpentLessThanEqualOrderByMinSpentDesc(BigDecimal totalSpent);
 
     Optional<MembershipLevel> findTopByOrderByMinSpentAsc();
+
+    
 }
