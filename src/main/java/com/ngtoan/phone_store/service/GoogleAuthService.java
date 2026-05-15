@@ -32,18 +32,7 @@ public class GoogleAuthService {
 
     public Map<String, Object> loginWithGoogle(String idTokenString) {
         try {
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
-                    GoogleNetHttpTransport.newTrustedTransport(),
-                    GsonFactory.getDefaultInstance()
-            )
-                    .setAudience(Collections.singletonList(googleClientId))
-                    .build();
-
-            GoogleIdToken idToken = verifier.verify(idTokenString);
-
-            if (idToken == null) {
-                throw new UnauthorizedException("Google token không hợp lệ");
-            }
+            GoogleIdToken idToken = verifyGoogleToken(idTokenString);
 
             GoogleIdToken.Payload payload = idToken.getPayload();
 
@@ -65,7 +54,6 @@ public class GoogleAuthService {
             }
 
             String roleName = user.getRoleId() == 1 ? "ADMIN" : "USER";
-
             String token = JwtUtil.generateToken(user.getUsername());
 
             Map<String, Object> res = new HashMap<>();
@@ -82,8 +70,27 @@ public class GoogleAuthService {
         } catch (UnauthorizedException e) {
             throw e;
         } catch (Exception e) {
-            throw new UnauthorizedException("Đăng nhập Google thất bại");
+            throw new UnauthorizedException(
+                    "Đăng nhập Google thất bại: " + e.getClass().getSimpleName()
+            );
         }
+    }
+
+    private GoogleIdToken verifyGoogleToken(String idTokenString) throws Exception {
+        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                GoogleNetHttpTransport.newTrustedTransport(),
+                GsonFactory.getDefaultInstance()
+        )
+                .setAudience(Collections.singletonList(googleClientId))
+                .build();
+
+        GoogleIdToken idToken = verifier.verify(idTokenString);
+
+        if (idToken == null) {
+            throw new UnauthorizedException("Google token không hợp lệ hoặc sai clientId");
+        }
+
+        return idToken;
     }
 
     private User createGoogleUser(String email, String fullName) {
@@ -98,7 +105,7 @@ public class GoogleAuthService {
         );
 
         user.setPassword(UUID.randomUUID().toString());
-        user.setPhone("");
+        user.setPhone("Chưa cập nhật");
         user.setRoleId(2); // USER
         user.setStatus(true);
         user.setTotalSpent(BigDecimal.ZERO);
