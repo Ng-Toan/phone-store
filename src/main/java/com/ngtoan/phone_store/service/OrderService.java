@@ -41,6 +41,9 @@ public class OrderService {
     // ===== MEMBERSHIP =====
     private final MembershipLevelService membershipLevelService;
 
+    // ===== NOTIFICATION =====
+    private final NotificationService notificationService;
+
     // ===== CHECKOUT =====
     public OrderResponse placeOrder(String username, CheckoutRequest request) {
 
@@ -166,6 +169,15 @@ public class OrderService {
 
         // ===== CLEAR CART =====
         clearPurchasedItemsFromCart(userID, request);
+
+        // ===== NOTIFICATION: USER ĐẶT HÀNG -> BÁO ADMIN =====
+        notificationService.notifyAdmin(
+                "Có đơn hàng mới",
+                "Khách hàng " + order.getCustomerName()
+                        + " vừa đặt đơn hàng " + order.getOrderCode(),
+                "NEW_ORDER",
+                order.getOrderID()
+        );
 
         // ===== RESPONSE =====
         OrderResponse response = new OrderResponse();
@@ -353,6 +365,11 @@ public class OrderService {
         order.setStatus(status);
 
         orderRepository.save(order);
+
+        // ===== NOTIFICATION: ADMIN ĐỔI TRẠNG THÁI -> BÁO USER =====
+        if (oldStatus != status) {
+            notifyUserByOrderStatus(order, status);
+        }
 
         // ===== SYNC PAYMENT COD =====
         paymentService.syncPaymentWithOrder(order);
@@ -591,6 +608,15 @@ public OrderAdminResponse cancelMyOrder(String username, Integer orderID) {
     order.setStatus(OrderStatus.CANCELLED);
     orderRepository.save(order);
 
+    // ===== NOTIFICATION: USER HỦY ĐƠN -> BÁO ADMIN =====
+    notificationService.notifyAdmin(
+            "Khách hàng đã hủy đơn",
+            "Khách hàng " + order.getCustomerName()
+                    + " đã hủy đơn hàng " + order.getOrderCode(),
+            "USER_CANCELLED_ORDER",
+            order.getOrderID()
+    );
+
     // Đồng bộ lại tổng chi tiêu và hạng cho chắc
     syncUserTotalSpent(order.getUserID());
 
@@ -600,4 +626,55 @@ public OrderAdminResponse cancelMyOrder(String username, Integer orderID) {
 
     return toAdminResponse(order);
 }
+    // ===== NOTIFICATION HELPER =====
+    private void notifyUserByOrderStatus(Order order, OrderStatus status) {
+
+        if (status == OrderStatus.CONFIRMED) {
+            notificationService.notifyUser(
+                    order.getUserID(),
+                    "Đơn hàng đã được xác nhận",
+                    "Đơn hàng " + order.getOrderCode()
+                            + " của bạn đã được admin xác nhận.",
+                    "ORDER_CONFIRMED",
+                    order.getOrderID()
+            );
+            return;
+        }
+
+        if (status == OrderStatus.SHIPPING) {
+            notificationService.notifyUser(
+                    order.getUserID(),
+                    "Đơn hàng đang được giao",
+                    "Đơn hàng " + order.getOrderCode()
+                            + " đang được giao đến bạn.",
+                    "ORDER_SHIPPING",
+                    order.getOrderID()
+            );
+            return;
+        }
+
+        if (status == OrderStatus.DELIVERED) {
+            notificationService.notifyUser(
+                    order.getUserID(),
+                    "Giao hàng thành công",
+                    "Đơn hàng " + order.getOrderCode()
+                            + " đã được giao thành công.",
+                    "ORDER_DELIVERED",
+                    order.getOrderID()
+            );
+            return;
+        }
+
+        if (status == OrderStatus.CANCELLED) {
+            notificationService.notifyUser(
+                    order.getUserID(),
+                    "Đơn hàng đã bị hủy",
+                    "Đơn hàng " + order.getOrderCode()
+                            + " đã bị hủy.",
+                    "ORDER_CANCELLED",
+                    order.getOrderID()
+            );
+        }
+    }
+
 }

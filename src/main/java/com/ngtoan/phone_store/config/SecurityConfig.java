@@ -88,6 +88,14 @@ public class SecurityConfig {
                 // IMPORT - ADMIN quản lý nhập hàng
                 .requestMatchers("/imports/**").hasRole("ADMIN")
 
+                .requestMatchers(HttpMethod.GET, "/notifications/my").authenticated()
+                .requestMatchers(HttpMethod.GET, "/notifications/my/unread-count").authenticated()
+
+                .requestMatchers(HttpMethod.GET, "/notifications/admin").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/notifications/admin/unread-count").hasRole("ADMIN")
+
+                .requestMatchers(HttpMethod.PUT, "/notifications/*/read").authenticated()
+
                 // USER
                 .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")
                 .requestMatchers("/users/me").hasAnyRole("USER", "ADMIN")
