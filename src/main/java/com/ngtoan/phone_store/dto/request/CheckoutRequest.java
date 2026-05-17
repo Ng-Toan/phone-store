@@ -11,6 +11,7 @@ public class CheckoutRequest {
     String phone;
     String address;
     String paymentMethod;
+    String note;
 
     List<CheckoutItemRequest> items;
 }

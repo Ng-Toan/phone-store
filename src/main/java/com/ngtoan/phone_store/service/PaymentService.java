@@ -1,27 +1,21 @@
 package com.ngtoan.phone_store.service;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.ngtoan.phone_store.dto.response.AdminPaymentResponse;
 import com.ngtoan.phone_store.entity.Order;
-import com.ngtoan.phone_store.entity.OrderDetail;
 import com.ngtoan.phone_store.entity.OrderStatus;
 import com.ngtoan.phone_store.entity.Payment;
 import com.ngtoan.phone_store.entity.PaymentMethod;
 import com.ngtoan.phone_store.entity.PaymentStatus;
-import com.ngtoan.phone_store.entity.Product;
 import com.ngtoan.phone_store.entity.User;
-import com.ngtoan.phone_store.exception.OutOfStockException;
 import com.ngtoan.phone_store.exception.ResourceNotFoundException;
-import com.ngtoan.phone_store.repository.OrderDetailRepository;
 import com.ngtoan.phone_store.repository.OrderRepository;
 import com.ngtoan.phone_store.repository.PaymentRepository;
-import com.ngtoan.phone_store.repository.ProductRepository;
 import com.ngtoan.phone_store.repository.UserRepository;
-import com.ngtoan.phone_store.dto.response.AdminPaymentResponse;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -33,12 +27,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
-
-    private final MembershipLevelService membershipLevelService;
     private final UserRepository userRepository;
-    
-    private final OrderDetailRepository orderDetailRepository;
-    private final ProductRepository productRepository;
 
     // 1. Tạo payment
     public Payment createPayment(Integer orderID, PaymentMethod method) {
@@ -62,73 +51,78 @@ public class PaymentService {
 
         // generate paymentCode
         payment.setPaymentCode(
-                "TT" + String.format("%05d",
-                        payment.getPaymentID()));
+                "TT" + String.format("%05d", payment.getPaymentID())
+        );
 
         // save lần 2
         return paymentRepository.save(payment);
     }
 
-    // 2. Thanh toán thành công (ONLINE)
+    // 2. Thanh toán thành công ONLINE
     public void handlePaymentSuccess(Integer paymentID) {
 
-    Payment payment = paymentRepository.findById(paymentID)
-            .orElseThrow();
+        Payment payment = paymentRepository.findById(paymentID)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Payment not found")
+                );
 
-    // tránh success nhiều lần
-    if (payment.getStatus() != PaymentStatus.PENDING) {
-        return;
+        // Tránh xác nhận thanh toán nhiều lần
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            return;
+        }
+
+        Order order = orderRepository.findById(payment.getOrderID())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Order not found")
+                );
+
+        // Nếu đơn đã bị hủy thì không cho thanh toán thành công nữa
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setNote("Thanh toán thất bại vì đơn hàng đã bị hủy");
+            paymentRepository.save(payment);
+            return;
+        }
+
+        /*
+         * QUAN TRỌNG:
+         * Thanh toán thành công chỉ cập nhật Payment.
+         * Không tự đổi Order sang CONFIRMED.
+         * Không trừ kho.
+         * Không cộng TotalSpent.
+         * Không cập nhật hạng thành viên.
+         *
+         * Admin xác nhận đơn trong OrderService thì mới đổi Order sang CONFIRMED.
+         * Admin hoàn thành đơn DELIVERED thì mới cộng TotalSpent và xét hạng.
+         */
+
+        payment.setStatus(PaymentStatus.SUCCESS);
+        payment.setPaymentDate(LocalDateTime.now());
+        payment.setTransactionCode("TXN" + System.currentTimeMillis());
+        payment.setNote("Thanh toán thành công, chờ admin xác nhận đơn hàng");
+
+        paymentRepository.save(payment);
     }
 
-    Order order = orderRepository.findById(payment.getOrderID())
-            .orElseThrow();
-
-    // tránh trừ kho nhiều lần
-    if (order.getStatus() != OrderStatus.CONFIRMED) {
-
-        // ===== TRỪ STOCK =====
-        deductStock(order.getOrderID());
-
-        // ===== CONFIRM ORDER =====
-        order.setStatus(OrderStatus.CONFIRMED);
-    }
-
-    payment.setStatus(PaymentStatus.SUCCESS);
-
-    payment.setPaymentDate(LocalDateTime.now());
-
-    payment.setTransactionCode(
-            "TXN" + System.currentTimeMillis()
-    );
-
-    payment.setNote("Thanh toán thành công");
-
-    paymentRepository.save(payment);
-
-    orderRepository.save(order);
-
-    // ===== CỘNG TOTAL SPENT =====
-    syncUserTotalSpent(order.getUserID());
-
-    // ===== UPDATE MEMBERSHIP =====
-    membershipLevelService.updateUserMembershipLevel(
-            order.getUserID()
-    );
-}
-
-    // 3. Thanh toán thất bại (ONLINE)
+    // 3. Thanh toán thất bại ONLINE
     public void handlePaymentFail(Integer paymentID) {
 
         Payment payment = paymentRepository.findById(paymentID)
-                .orElseThrow();
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Payment not found")
+                );
 
-        if(payment.getStatus() != PaymentStatus.PENDING) return;
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            return;
+        }
 
         payment.setStatus(PaymentStatus.FAILED);
         payment.setNote("Thanh toán thất bại");
 
         Order order = orderRepository.findById(payment.getOrderID())
-                .orElseThrow();
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Order not found")
+                );
 
         order.setStatus(OrderStatus.CANCELLED);
 
@@ -142,9 +136,13 @@ public class PaymentService {
         Payment payment = paymentRepository.findByOrderID(order.getOrderID())
                 .orElse(null);
 
-        if(payment == null) return;
+        if (payment == null) {
+            return;
+        }
 
-        if(payment.getMethod() != PaymentMethod.COD) return;
+        if (payment.getMethod() != PaymentMethod.COD) {
+            return;
+        }
 
         switch (order.getStatus()) {
             case DELIVERED:
@@ -165,165 +163,89 @@ public class PaymentService {
         paymentRepository.save(payment);
     }
 
-    private void syncUserTotalSpent(Integer userID) {
-
-        BigDecimal totalSpent =
-                orderRepository.calculateTotalSpentByUserID(
-                        userID
-                );
-
-        if (totalSpent == null) {
-            totalSpent = BigDecimal.ZERO;
-        }
-
-        User user = userRepository.findById(userID)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "User not found with id: "
-                                        + userID
-                        )
-                );
-
-        user.setTotalSpent(totalSpent);
-
-        userRepository.save(user);
-    }
-
-    //Lấy tất cả payment
-public List<AdminPaymentResponse> getAllPayments() {
+    // 5. Lấy tất cả payment
+    public List<AdminPaymentResponse> getAllPayments() {
 
         List<Payment> payments = paymentRepository.findAll()
                 .stream()
-                 .sorted((a, b) ->
-                b.getCreatedDate().compareTo(a.getCreatedDate())
-        )
-        .toList();
+                .sorted((a, b) ->
+                        b.getCreatedDate().compareTo(a.getCreatedDate())
+                )
+                .toList();
 
         return payments.stream().map(payment -> {
 
-                Order order = orderRepository.findById(payment.getOrderID())
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException("Order not found"));
+            Order order = orderRepository.findById(payment.getOrderID())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Order not found")
+                    );
 
-                User user = userRepository.findById(order.getUserID())
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException("User not found"));
+            User user = userRepository.findById(order.getUserID())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("User not found")
+                    );
 
-                AdminPaymentResponse response =
-                        new AdminPaymentResponse();
+            AdminPaymentResponse response = new AdminPaymentResponse();
 
-                response.setPaymentID(payment.getPaymentID());
+            response.setPaymentID(payment.getPaymentID());
+            response.setPaymentCode(payment.getPaymentCode());
 
-                response.setPaymentCode(payment.getPaymentCode());
+            response.setOrderID(order.getOrderID());
+            response.setOrderCode(order.getOrderCode());
 
-                response.setOrderID(order.getOrderID());
+            response.setCustomerName(user.getFullName());
 
-                response.setOrderCode(order.getOrderCode());
+            response.setMethod(payment.getMethod().name());
+            response.setStatus(payment.getStatus().name());
+            response.setOrderStatus(order.getStatus().name());
 
-                response.setCustomerName(user.getFullName());
+            response.setAmount(payment.getAmount());
+            response.setPaymentDate(payment.getPaymentDate());
+            response.setTransactionCode(payment.getTransactionCode());
+            response.setNote(payment.getNote());
 
-                response.setMethod(payment.getMethod().name());
-
-                response.setStatus(payment.getStatus().name());
-
-                response.setOrderStatus(
-                        order.getStatus().name());
-
-                response.setAmount(payment.getAmount());
-
-                response.setPaymentDate(payment.getPaymentDate());
-
-                response.setTransactionCode(
-                        payment.getTransactionCode());
-
-                response.setNote(payment.getNote());
-
-                return response;
+            return response;
 
         }).toList();
-        }
-        //Lấy chi tiết 1 payment
-public AdminPaymentResponse getPaymentById(Integer id) {
+    }
+
+    // 6. Lấy chi tiết 1 payment
+    public AdminPaymentResponse getPaymentById(Integer id) {
 
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Payment not found"));
+                        new ResourceNotFoundException("Payment not found")
+                );
 
         Order order = orderRepository.findById(payment.getOrderID())
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Order not found"));
+                        new ResourceNotFoundException("Order not found")
+                );
 
         User user = userRepository.findById(order.getUserID())
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found"));
+                        new ResourceNotFoundException("User not found")
+                );
 
-        AdminPaymentResponse response =
-                new AdminPaymentResponse();
+        AdminPaymentResponse response = new AdminPaymentResponse();
 
         response.setPaymentID(payment.getPaymentID());
-                response.setPaymentCode(
-        payment.getPaymentCode());
+        response.setPaymentCode(payment.getPaymentCode());
 
         response.setOrderID(order.getOrderID());
-        response.setOrderCode(
-                order.getOrderCode());
+        response.setOrderCode(order.getOrderCode());
 
         response.setCustomerName(user.getFullName());
 
         response.setMethod(payment.getMethod().name());
-
         response.setStatus(payment.getStatus().name());
+        response.setOrderStatus(order.getStatus().name());
 
         response.setAmount(payment.getAmount());
-
         response.setPaymentDate(payment.getPaymentDate());
-
-        response.setTransactionCode(
-                payment.getTransactionCode());
-
-        response.setOrderStatus(
-                order.getStatus().name());
-
-        response.setNote(
-                payment.getNote());
+        response.setTransactionCode(payment.getTransactionCode());
+        response.setNote(payment.getNote());
 
         return response;
-        }
-
-        private void deductStock(Integer orderID) {
-
-    List<OrderDetail> details =
-            orderDetailRepository.findByOrderID(orderID);
-
-    for (OrderDetail detail : details) {
-
-        Product product =
-                productRepository.findByIdForUpdate(
-                        detail.getProductID()
-                );
-
-        if (product == null) {
-            throw new ResourceNotFoundException(
-                    "Product not found"
-            );
-        }
-
-        if (product.getQuantity() < detail.getQuantity()) {
-
-            throw new OutOfStockException(
-                    product.getName() + " out of stock"
-            );
-        }
-
-        product.setQuantity(
-                product.getQuantity()
-                        - detail.getQuantity()
-        );
-
-        productRepository.save(product);
     }
-}
 }

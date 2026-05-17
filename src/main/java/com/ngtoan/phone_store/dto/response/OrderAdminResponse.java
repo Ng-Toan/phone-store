@@ -1,26 +1,30 @@
 package com.ngtoan.phone_store.dto.response;
 
+import lombok.AccessLevel;
 import lombok.Data;
+import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class OrderAdminResponse {
-    private Integer orderID;
-    private Integer userID;
-    private String orderCode;
-    private LocalDateTime createdDate;
-    private BigDecimal totalAmount;
-    private String status;
+    Integer orderID;
+    Integer userID;
+    String orderCode;
+    LocalDateTime createdDate;
+    BigDecimal totalAmount;
+    String status;
 
-    private String customerName;
-    private String phone;
-    private String address;
-    private String paymentMethod;
+    String customerName;
+    String phone;
+    String address;
+    String paymentMethod;
+    String note;
 
-    private List<OrderDetailResponse> items;
+    List<OrderDetailResponse> items;
 
-     private PaymentResponse payment;
+     PaymentResponse payment;
 }

@@ -60,4 +60,15 @@ public class OrderController {
         String username = authentication.getName();
         return orderService.getMyOrders(username);
     }
+
+    @PutMapping("/my-orders/{orderID}/cancel")
+public OrderAdminResponse cancelMyOrder(
+        Authentication authentication,
+        @PathVariable Integer orderID
+) {
+    return orderService.cancelMyOrder(
+            authentication.getName(),
+            orderID
+    );
+}
 }

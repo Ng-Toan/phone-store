@@ -19,7 +19,7 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
                         SELECT ISNULL(SUM(TotalAmount), 0)
                         FROM [Order]
                         WHERE UserID = :userID
-                          AND Status IN (1, 2, 3)
+                          AND Status = 3
                         """, nativeQuery = true)
         BigDecimal calculateTotalSpentByUserID(
                         @Param("userID") Integer userID);

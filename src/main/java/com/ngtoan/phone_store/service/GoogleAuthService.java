@@ -107,6 +107,7 @@ public class GoogleAuthService {
         user.setPassword(UUID.randomUUID().toString());
         user.setPhone("Chưa cập nhật");
         user.setRoleId(2); // USER
+        user.setLevelId(1);
         user.setStatus(true);
         user.setTotalSpent(BigDecimal.ZERO);
         user.setCreatedDate(LocalDateTime.now());
