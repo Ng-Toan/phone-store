@@ -22,6 +22,11 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Product {
 
+    // Quy ước trạng thái sản phẩm
+    public static final int STATUS_NGUNG_BAN = 0;
+    public static final int STATUS_DANG_BAN = 1;
+    public static final int STATUS_AN_SAN_PHAM = -1;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer productID;
@@ -53,8 +58,9 @@ public class Product {
     @Builder.Default
     Boolean isHot = false;
 
+    // 1: Đang bán, 0: Ngừng bán, -1: Ẩn sản phẩm
     @Builder.Default
-    Integer status = 1;
+    Integer status = STATUS_DANG_BAN;
 
     @Size(max = 500)
     String description;

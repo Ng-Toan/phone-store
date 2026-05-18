@@ -40,4 +40,6 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
             """)
     List<Object[]> findLowStockProducts(@Param("limit") Integer limit);
 
+    List<Product> findByStatusNot(Integer status);
+
 }
