@@ -44,36 +44,36 @@ public class UserService {
     }
 
     // Login JWT
-public String login(LoginRequest dto) {
+    public String login(LoginRequest dto) {
 
-    User user = userRepository.findByUsername(dto.getUsername());
+        User user = userRepository.findByUsername(dto.getUsername());
 
-    if (user == null) {
-        throw new UnauthorizedException("Invalid username or password");
+        if (user == null || Boolean.TRUE.equals(user.getDeleted())) {
+            throw new UnauthorizedException("Invalid username or password");
+        }
+
+        // Bắt buộc tên đăng nhập phải đúng chữ hoa/thường như lúc đăng ký
+        if (!user.getUsername().equals(dto.getUsername())) {
+            throw new UnauthorizedException("Invalid username or password");
+        }
+
+        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
+            throw new UnauthorizedException("Invalid username or password");
+        }
+
+        if (!Boolean.TRUE.equals(user.getStatus())) {
+            throw new ForbiddenException("Tài khoản chưa được xác thực hoặc đã bị khóa");
+        }
+
+        return JwtUtil.generateToken(user.getUsername());
     }
-
-    // Bắt buộc tên đăng nhập phải đúng chữ hoa/thường như lúc đăng ký
-    if (!user.getUsername().equals(dto.getUsername())) {
-        throw new UnauthorizedException("Invalid username or password");
-    }
-
-    if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
-        throw new UnauthorizedException("Invalid username or password");
-    }
-
-    if (!Boolean.TRUE.equals(user.getStatus())) {
-        throw new ForbiddenException("Please verify your email before login");
-    }
-
-    return JwtUtil.generateToken(user.getUsername());
-}
 
     // Change password
     public String changePassword(String username, String oldPassword, String newPassword) {
 
         User user = userRepository.findByUsername(username);
 
-        if (user == null) {
+        if (user == null || Boolean.TRUE.equals(user.getDeleted())) {
             throw new ResourceNotFoundException("User not found");
         }
 
@@ -89,9 +89,17 @@ public String login(LoginRequest dto) {
 
     // Get user by id
     public User getUserById(int id) {
-        return userRepository.findById(id)
+
+        User user = userRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("User not found with id: " + id));
+                        new ResourceNotFoundException("User not found with id: " + id)
+                );
+
+        if (Boolean.TRUE.equals(user.getDeleted())) {
+            throw new ResourceNotFoundException("User not found with id: " + id);
+        }
+
+        return user;
     }
 
     // User update profile
@@ -114,7 +122,7 @@ public String login(LoginRequest dto) {
         }
 
         if (dto.getGender() != null) {
-        user.setGender(dto.getGender());
+            user.setGender(dto.getGender());
         }
 
         if (dto.getBirthDate() != null) {
@@ -133,7 +141,7 @@ public String login(LoginRequest dto) {
 
         User user = userRepository.findByUsername(username);
 
-        if (user == null) {
+        if (user == null || Boolean.TRUE.equals(user.getDeleted())) {
             throw new ResourceNotFoundException(
                     "User not found with username: " + username
             );
@@ -143,60 +151,59 @@ public String login(LoginRequest dto) {
     }
 
     // User profile response
-public UserProfileResponse getMyProfile(String username) {
+    public UserProfileResponse getMyProfile(String username) {
 
-    User user = userRepository.findByUsername(username);
+        User user = userRepository.findByUsername(username);
 
-    if (user == null) {
-        throw new ResourceNotFoundException("User not found");
+        if (user == null || Boolean.TRUE.equals(user.getDeleted())) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
+        BigDecimal totalSpent = user.getTotalSpent() == null
+                ? BigDecimal.ZERO
+                : user.getTotalSpent();
+
+        MembershipLevel level = null;
+
+        if (user.getLevelId() != null) {
+            level = membershipLevelRepository.findById(user.getLevelId())
+                    .orElse(null);
+        }
+
+        // Nếu user chưa có levelId thì tự lấy hạng phù hợp theo totalSpent
+        if (level == null) {
+            level = membershipLevelRepository
+                    .findTopByMinSpentLessThanEqualOrderByMinSpentDesc(totalSpent)
+                    .orElseGet(() ->
+                            membershipLevelRepository
+                                    .findTopByOrderByMinSpentAsc()
+                                    .orElse(null)
+                    );
+        }
+
+        UserProfileResponse response = new UserProfileResponse();
+
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setFullName(user.getFullName());
+        response.setEmail(user.getEmail());
+        response.setPhone(user.getPhone());
+        response.setGender(user.getGender());
+        response.setBirthDate(user.getBirthDate());
+        response.setAddress(user.getAddress());
+        response.setRoleId(user.getRoleId());
+
+        response.setLevelId(level != null ? level.getLevelID() : user.getLevelId());
+        response.setLevelName(level != null ? level.getLevelName() : "Đồng");
+        response.setMinSpent(level != null ? level.getMinSpent() : BigDecimal.ZERO);
+        response.setDiscountPercent(
+                level != null ? level.getDiscountPercent() : BigDecimal.ZERO
+        );
+
+        response.setTotalSpent(totalSpent);
+        response.setStatus(user.getStatus());
+        response.setCreatedDate(user.getCreatedDate());
+
+        return response;
     }
-
-    BigDecimal totalSpent = user.getTotalSpent() == null
-            ? BigDecimal.ZERO
-            : user.getTotalSpent();
-
-    MembershipLevel level = null;
-
-    if (user.getLevelId() != null) {
-        level = membershipLevelRepository.findById(user.getLevelId())
-                .orElse(null);
-    }
-
-    // Nếu user chưa có levelId thì tự lấy hạng phù hợp theo totalSpent
-    if (level == null) {
-        level = membershipLevelRepository
-                .findTopByMinSpentLessThanEqualOrderByMinSpentDesc(totalSpent)
-                .orElseGet(() ->
-                        membershipLevelRepository
-                                .findTopByOrderByMinSpentAsc()
-                                .orElse(null)
-                );
-    }
-
-    UserProfileResponse response = new UserProfileResponse();
-
-    response.setUserId(user.getUserId());
-    response.setUsername(user.getUsername());
-    response.setFullName(user.getFullName());
-    response.setEmail(user.getEmail());
-    response.setPhone(user.getPhone());
-    response.setGender(user.getGender());
-    response.setBirthDate(user.getBirthDate());
-    response.setAddress(user.getAddress());
-    response.setRoleId(user.getRoleId());
-
-    response.setLevelId(level != null ? level.getLevelID() : user.getLevelId());
-    response.setLevelName(level != null ? level.getLevelName() : "Đồng");
-    response.setMinSpent(level != null ? level.getMinSpent() : BigDecimal.ZERO);
-    response.setDiscountPercent(
-            level != null ? level.getDiscountPercent() : BigDecimal.ZERO
-    );
-
-    response.setTotalSpent(totalSpent);
-    response.setStatus(user.getStatus());
-    response.setCreatedDate(user.getCreatedDate());
-
-    return response;
-}
-
 }

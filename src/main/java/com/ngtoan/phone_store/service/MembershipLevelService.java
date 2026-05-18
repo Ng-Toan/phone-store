@@ -19,43 +19,55 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class MembershipLevelService {
 
+    private static final Set<String> DEFAULT_LEVEL_NAMES = Set.of(
+            "Đồng",
+            "Bạc",
+            "Vàng",
+            "Kim Cương"
+    );
+
     private final MembershipLevelRepository membershipLevelRepository;
     private final UserRepository userRepository;
     private final MembershipLevelMapper membershipLevelMapper;
     private final MembershipHistoryRepository membershipHistoryRepository;
 
-    // USER / ADMIN - Lấy danh sách cấp độ
+    // USER / ADMIN - Lấy danh sách cấp độ chưa bị xóa mềm
     public List<MembershipLevelResponse> getAllLevels() {
-        return membershipLevelRepository.findAll()
+        return membershipLevelRepository.findAllVisibleLevels()
                 .stream()
-                .sorted(Comparator.comparing(MembershipLevel::getMinSpent))
-                .map(membershipLevelMapper::toResponse)
+                .map(this::toResponse)
                 .toList();
     }
 
     // ADMIN - Thêm cấp độ
     public MembershipLevelResponse createLevel(MembershipLevelRequest request) {
 
-        if (membershipLevelRepository.existsByLevelNameIgnoreCase(request.getLevelName())) {
+        if (membershipLevelRepository.existsVisibleByLevelNameIgnoreCase(
+                request.getLevelName()
+        )) {
             throw new BadRequestException("Level name already exists");
         }
 
-        if (membershipLevelRepository.existsByMinSpent(request.getMinSpent())) {
+        if (membershipLevelRepository.existsVisibleByMinSpent(
+                request.getMinSpent()
+        )) {
             throw new BadRequestException("Min spent already exists");
         }
 
         MembershipLevel level = MembershipLevel.builder()
-                .levelName(request.getLevelName())
+                .levelName(request.getLevelName().trim())
                 .discountPercent(request.getDiscountPercent())
                 .minSpent(request.getMinSpent())
+                .isDefault(false)
+                .isDeleted(false)
                 .build();
 
         membershipLevelRepository.save(level);
@@ -63,55 +75,68 @@ public class MembershipLevelService {
         // Không lưu MembershipHistory ở đây để tránh tạo lịch sử giả hàng loạt
         recalculateAllUsersMembership();
 
-        return membershipLevelMapper.toResponse(level);
+        return toResponse(level);
     }
 
     // ADMIN - Sửa cấp độ
     public MembershipLevelResponse updateLevel(Integer levelID, MembershipLevelRequest request) {
 
-        MembershipLevel level = membershipLevelRepository.findById(levelID)
+        MembershipLevel level = membershipLevelRepository.findVisibleById(levelID)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Membership level not found with id: " + levelID
                 ));
 
-        if (membershipLevelRepository.existsByLevelNameIgnoreCaseAndLevelIDNot(
+        if (membershipLevelRepository.existsVisibleByLevelNameIgnoreCaseAndLevelIDNot(
                 request.getLevelName(),
                 levelID
         )) {
             throw new BadRequestException("Level name already exists");
         }
 
-        if (membershipLevelRepository.existsByMinSpentAndLevelIDNot(
+        if (membershipLevelRepository.existsVisibleByMinSpentAndLevelIDNot(
                 request.getMinSpent(),
                 levelID
         )) {
             throw new BadRequestException("Min spent already exists");
         }
 
-        level.setLevelName(request.getLevelName());
+        level.setLevelName(request.getLevelName().trim());
         level.setDiscountPercent(request.getDiscountPercent());
         level.setMinSpent(request.getMinSpent());
+
+        // Nếu là 4 hạng mặc định thì giữ isDefault = true
+        if (DEFAULT_LEVEL_NAMES.contains(level.getLevelName())) {
+            level.setIsDefault(true);
+        }
+
+        level.setIsDeleted(false);
 
         membershipLevelRepository.save(level);
 
         // Không lưu MembershipHistory ở đây để tránh spam lịch sử khi admin sửa mức chi tiêu
         recalculateAllUsersMembership();
 
-        return membershipLevelMapper.toResponse(level);
+        return toResponse(level);
     }
 
-    // ADMIN - Xóa cấp độ
+    // ADMIN - Xóa mềm cấp độ
     public void deleteLevel(Integer levelID) {
 
-        MembershipLevel level = membershipLevelRepository.findById(levelID)
+        MembershipLevel level = membershipLevelRepository.findVisibleById(levelID)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Membership level not found with id: " + levelID
                 ));
 
-        if (membershipLevelRepository.count() <= 1) {
+        if (Boolean.TRUE.equals(level.getIsDefault())
+                || DEFAULT_LEVEL_NAMES.contains(level.getLevelName())) {
+            throw new BadRequestException("Không thể xóa hạng thành viên mặc định.");
+        }
+
+        if (membershipLevelRepository.findAllVisibleLevels().size() <= 1) {
             throw new BadRequestException("Cannot delete the last membership level");
         }
 
+        // User nào đang thuộc hạng bị xóa thì cho về null rồi tính lại hạng phù hợp
         List<User> usersUsingThisLevel = userRepository.findByLevelId(levelID);
 
         for (User user : usersUsingThisLevel) {
@@ -120,7 +145,14 @@ public class MembershipLevelService {
 
         userRepository.saveAll(usersUsingThisLevel);
 
-        membershipLevelRepository.delete(level);
+        // Đổi tên để admin có thể tạo lại hạng cùng tên sau này
+        String deletedName = level.getLevelName() + "_deleted_" + level.getLevelID();
+
+        level.setLevelName(deletedName);
+        level.setIsDeleted(true);
+        level.setIsDefault(false);
+
+        membershipLevelRepository.save(level);
 
         // Không lưu MembershipHistory ở đây vì đây là tính lại do admin xóa hạng
         recalculateAllUsersMembership();
@@ -244,10 +276,10 @@ public class MembershipLevelService {
             return false;
         }
 
-        MembershipLevel oldLevel = membershipLevelRepository.findById(oldLevelId)
+        MembershipLevel oldLevel = membershipLevelRepository.findVisibleById(oldLevelId)
                 .orElse(null);
 
-        MembershipLevel newLevel = membershipLevelRepository.findById(newLevelId)
+        MembershipLevel newLevel = membershipLevelRepository.findVisibleById(newLevelId)
                 .orElse(null);
 
         if (oldLevel == null || newLevel == null) {
@@ -274,6 +306,15 @@ public class MembershipLevelService {
         response.setLevelName(level.getLevelName());
         response.setDiscountPercent(level.getDiscountPercent());
         response.setMinSpent(level.getMinSpent());
+
+        return response;
+    }
+
+    private MembershipLevelResponse toResponse(MembershipLevel level) {
+        MembershipLevelResponse response = membershipLevelMapper.toResponse(level);
+
+        response.setIsDefault(Boolean.TRUE.equals(level.getIsDefault()));
+        response.setIsDeleted(Boolean.TRUE.equals(level.getIsDeleted()));
 
         return response;
     }

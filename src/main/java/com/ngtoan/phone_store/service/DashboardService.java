@@ -66,6 +66,8 @@ public class DashboardService {
         Long totalSuppliers = supplierRepository.count();
         Long activeSuppliers = supplierRepository.countByStatus("ACTIVE");
 
+        List<DashboardResponse.LatestReviewItem> latestReviews = buildLatestReviews(2);
+
         return DashboardResponse.builder()
                 .totalRevenueThisMonth(nullToZero(totalRevenueThisMonth))
                 .totalOrders(totalOrders)
@@ -86,7 +88,13 @@ public class DashboardService {
                 .recentUpgradedMembers(buildRecentUpgradedMembers())
                 .topSellingProducts(buildTopSellingProducts(monthStart, nextMonthStart))
                 .lowStockItems(buildLowStockItems())
-                .latestReview(buildLatestReview())
+
+                // Giữ lại latestReview để frontend cũ không lỗi
+                .latestReview(latestReviews.isEmpty() ? null : latestReviews.get(0))
+
+                // Dùng cho frontend mới hiển thị 2 đánh giá
+                .latestReviews(latestReviews)
+
                 .build();
     }
 
@@ -182,7 +190,7 @@ public class DashboardService {
     }
 
     private List<DashboardResponse.MembershipOverviewItem> buildMembershipOverview(Long totalUsers) {
-        List<MembershipLevel> levels = membershipLevelRepository.findAll();
+        List<MembershipLevel> levels = membershipLevelRepository.findAllVisibleLevels();
 
         return levels.stream()
                 .map(level -> {
@@ -202,31 +210,32 @@ public class DashboardService {
                 })
                 .toList();
     }
+
     private List<DashboardResponse.RecentUpgradedMemberItem> buildRecentUpgradedMembers() {
-    return membershipHistoryRepository.findTop5ByOrderByUpdatedAtDesc()
-            .stream()
-            .map(history -> DashboardResponse.RecentUpgradedMemberItem.builder()
-                    .userID(history.getUserID())
-                    .fullName(
-                            history.getUser() != null
-                                    ? history.getUser().getFullName()
-                                    : "Khách hàng"
-                    )
-                    .fromLevel(
-                            history.getFromLevel() != null
-                                    ? history.getFromLevel().getLevelName()
-                                    : "Chưa có hạng"
-                    )
-                    .toLevel(
-                            history.getToLevel() != null
-                                    ? history.getToLevel().getLevelName()
-                                    : "Không rõ"
-                    )
-                    .updatedAt(history.getUpdatedAt())
-                    .build()
-            )
-            .toList();
-}
+        return membershipHistoryRepository.findTop5ByOrderByUpdatedAtDesc()
+                .stream()
+                .map(history -> DashboardResponse.RecentUpgradedMemberItem.builder()
+                        .userID(history.getUserID())
+                        .fullName(
+                                history.getUser() != null
+                                        ? history.getUser().getFullName()
+                                        : "Khách hàng"
+                        )
+                        .fromLevel(
+                                history.getFromLevel() != null
+                                        ? history.getFromLevel().getLevelName()
+                                        : "Chưa có hạng"
+                        )
+                        .toLevel(
+                                history.getToLevel() != null
+                                        ? history.getToLevel().getLevelName()
+                                        : "Không rõ"
+                        )
+                        .updatedAt(history.getUpdatedAt())
+                        .build()
+                )
+                .toList();
+    }
 
     private List<DashboardResponse.TopSellingProductItem> buildTopSellingProducts(
             LocalDateTime monthStart,
@@ -260,23 +269,25 @@ public class DashboardService {
                 .toList();
     }
 
-    private DashboardResponse.LatestReviewItem buildLatestReview() {
-        Object rowObj = feedbackRepository.findLatestReviewWithProductName();
+    private List<DashboardResponse.LatestReviewItem> buildLatestReviews(int limit) {
+        return feedbackRepository.findAllByOrderByCreatedDateDesc()
+                .stream()
+                .limit(limit)
+                .map(feedback -> {
+                    String productName = productRepository.findById(feedback.getProductID())
+                            .map(Product::getName)
+                            .orElse("Không rõ sản phẩm");
 
-        if (rowObj == null) {
-            return null;
-        }
-
-        Object[] row = (Object[]) rowObj;
-
-        return DashboardResponse.LatestReviewItem.builder()
-                .feedbackID(toInteger(row[0]))
-                .productID(toInteger(row[1]))
-                .productName(toStringValue(row[2]))
-                .rating(toInteger(row[3]))
-                .comment(toStringValue(row[4]))
-                .createdDate(toLocalDateTime(row[5]))
-                .build();
+                    return DashboardResponse.LatestReviewItem.builder()
+                            .feedbackID(feedback.getFeedbackID())
+                            .productID(feedback.getProductID())
+                            .productName(productName)
+                            .rating(feedback.getRating())
+                            .comment(feedback.getComment())
+                            .createdDate(feedback.getCreatedDate())
+                            .build();
+                })
+                .toList();
     }
 
     private String getOrderStatusLabel(OrderStatus status) {

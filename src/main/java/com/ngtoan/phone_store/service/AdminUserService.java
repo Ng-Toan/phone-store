@@ -5,6 +5,7 @@ import com.ngtoan.phone_store.dto.response.UserAdminResponse;
 import com.ngtoan.phone_store.dto.response.UserStatisticsResponse;
 import com.ngtoan.phone_store.entity.MembershipLevel;
 import com.ngtoan.phone_store.entity.User;
+import com.ngtoan.phone_store.exception.BadRequestException;
 import com.ngtoan.phone_store.exception.ResourceNotFoundException;
 import com.ngtoan.phone_store.mapper.UserMapper;
 import com.ngtoan.phone_store.repository.MembershipLevelRepository;
@@ -27,9 +28,9 @@ public class AdminUserService {
     private final MembershipLevelRepository membershipLevelRepository;
     private final UserMapper userMapper;
 
-    // ADMIN - lấy tất cả user
+    // ADMIN - lấy tất cả user chưa bị xóa mềm
     public List<UserAdminResponse> getAllUsers() {
-        return userRepository.findAll()
+        return userRepository.findAllVisibleUsers()
                 .stream()
                 .map(this::toAdminResponse)
                 .toList();
@@ -42,26 +43,15 @@ public class AdminUserService {
         return toAdminResponse(user);
     }
 
-    // ADMIN - tìm user theo keyword
+    // ADMIN - tìm user theo keyword, chỉ lấy user chưa bị xóa mềm
     public List<UserAdminResponse> searchUsers(String keyword) {
 
         if (keyword == null || keyword.trim().isEmpty()) {
             return getAllUsers();
         }
 
-        String searchKeyword = keyword.trim().toLowerCase();
-
-        List<User> users = userRepository.findAll()
+        return userRepository.searchVisibleUsers(keyword.trim())
                 .stream()
-                .filter(user ->
-                        containsIgnoreCase(user.getFullName(), searchKeyword)
-                                || containsIgnoreCase(user.getUsername(), searchKeyword)
-                                || containsIgnoreCase(user.getEmail(), searchKeyword)
-                                || containsIgnoreCase(user.getPhone(), searchKeyword)
-                )
-                .toList();
-
-        return users.stream()
                 .map(this::toAdminResponse)
                 .toList();
     }
@@ -88,17 +78,27 @@ public class AdminUserService {
         return toAdminResponse(user);
     }
 
-    // ADMIN - xóa user
+    // ADMIN - xóa mềm user
+    // Không xóa khỏi database để tránh lỗi khóa ngoại với Order, Feedback, MembershipHistory...
     public void deleteUser(Integer id) {
         User user = getUserEntityById(id);
 
-        userRepository.delete(user);
+        // Không cho xóa chính tài khoản admin gốc nếu bạn muốn bảo vệ tài khoản đầu tiên
+        // Nếu không cần rule này thì có thể xóa đoạn if này.
+        if (user.getRoleId() == 1 && user.getUserId() == 1) {
+            throw new BadRequestException("Không thể xóa tài khoản admin mặc định.");
+        }
+
+        user.setDeleted(true);
+        user.setStatus(false);
+
+        userRepository.save(user);
     }
 
-    // ADMIN - thống kê user
+    // ADMIN - thống kê user chưa bị xóa mềm
     public UserStatisticsResponse getStatistics() {
 
-        List<User> users = userRepository.findAll();
+        List<User> users = userRepository.findAllVisibleUsers();
 
         UserStatisticsResponse response = new UserStatisticsResponse();
 
@@ -129,12 +129,20 @@ public class AdminUserService {
     }
 
     private User getUserEntityById(Integer id) {
-        return userRepository.findById(id)
+        User user = userRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "User not found with id: " + id
                         )
                 );
+
+        if (Boolean.TRUE.equals(user.getDeleted())) {
+            throw new ResourceNotFoundException(
+                    "User not found with id: " + id
+            );
+        }
+
+        return user;
     }
 
     private UserAdminResponse toAdminResponse(User user) {
@@ -183,6 +191,7 @@ public class AdminUserService {
                         : "Tạm khóa"
         );
 
+        response.setDeleted(Boolean.TRUE.equals(user.getDeleted()));
         response.setCreatedDate(user.getCreatedDate());
 
         return response;
@@ -198,13 +207,5 @@ public class AdminUserService {
             case 2 -> "USER";
             default -> "Không rõ";
         };
-    }
-
-    private boolean containsIgnoreCase(String value, String keyword) {
-        if (value == null || keyword == null) {
-            return false;
-        }
-
-        return value.toLowerCase().contains(keyword.toLowerCase());
     }
 }

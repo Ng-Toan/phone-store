@@ -35,4 +35,6 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Integer> {
                 ORDER BY f.CreatedDate DESC
             """, nativeQuery = true)
     Object findLatestReviewWithProductName();
+
+    List<Feedback> findTop2ByOrderByCreatedDateDesc();
 }

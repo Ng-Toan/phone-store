@@ -15,6 +15,7 @@ import java.time.ZoneId;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
@@ -36,7 +37,8 @@ public class FeedbackService {
 
         productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Product not found with id: " + request.getProductId()));
+                        "Product not found with id: " + request.getProductId()
+                ));
 
         Feedback feedback = Feedback.builder()
                 .userID(userId)
@@ -56,7 +58,8 @@ public class FeedbackService {
 
         productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Product not found with id: " + productId));
+                        "Product not found with id: " + productId
+                ));
 
         return feedbackRepository
                 .findByProductIDOrderByCreatedDateDesc(productId)
@@ -66,20 +69,44 @@ public class FeedbackService {
     }
 
     // ADMIN - Lấy tất cả feedback
-        public List<FeedbackResponse> getAllFeedbacks() {
-            return feedbackRepository
-                    .findAllByOrderByCreatedDateDesc()
-                    .stream()
-                    .map(this::buildFeedbackResponse)
-                    .toList();
-        }
+    public List<FeedbackResponse> getAllFeedbacks() {
+        return feedbackRepository
+                .findAllByOrderByCreatedDateDesc()
+                .stream()
+                .map(this::buildFeedbackResponse)
+                .toList();
+    }
+
+    // DASHBOARD - Lấy 2 đánh giá mới nhất
+    public List<FeedbackResponse> getLatestTwoFeedbacks() {
+        return feedbackRepository
+                .findAllByOrderByCreatedDateDesc()
+                .stream()
+                .limit(2)
+                .map(this::buildFeedbackResponse)
+                .toList();
+    }
+
+    // DASHBOARD - Lấy số lượng đánh giá mới nhất theo limit
+    public List<FeedbackResponse> getLatestFeedbacks(int limit) {
+        return feedbackRepository
+                .findAllByOrderByCreatedDateDesc()
+                .stream()
+                .limit(limit)
+                .map(this::buildFeedbackResponse)
+                .toList();
+    }
 
     // READ - Lọc feedback theo số sao
-    public List<FeedbackResponse> getFeedbackByProductAndRating(Integer productId, Integer rating) {
+    public List<FeedbackResponse> getFeedbackByProductAndRating(
+            Integer productId,
+            Integer rating
+    ) {
 
         productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Product not found with id: " + productId));
+                        "Product not found with id: " + productId
+                ));
 
         return feedbackRepository
                 .findByProductIDAndRatingOrderByCreatedDateDesc(productId, rating)
@@ -93,27 +120,38 @@ public class FeedbackService {
 
         productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Product not found with id: " + productId));
+                        "Product not found with id: " + productId
+                ));
 
         Double average = feedbackRepository.getAverageRatingByProductID(productId);
 
         Map<Integer, Long> breakdown = new LinkedHashMap<>();
+
         for (int star = 5; star >= 1; star--) {
             Long count = feedbackRepository.countByProductIDAndRating(productId, star);
             breakdown.put(star, count);
         }
 
-        long totalReviews = breakdown.values().stream().mapToLong(Long::longValue).sum();
+        long totalReviews = breakdown.values()
+                .stream()
+                .mapToLong(Long::longValue)
+                .sum();
 
         RatingSummaryResponse summary = new RatingSummaryResponse();
-        summary.setAverageRating(average != null ? Math.round(average * 10.0) / 10.0 : 0.0);
+
+        summary.setAverageRating(
+                average != null
+                        ? Math.round(average * 10.0) / 10.0
+                        : 0.0
+        );
+
         summary.setTotalReviews((int) totalReviews);
         summary.setRatingBreakdown(breakdown);
 
         return summary;
     }
 
-    // UPDATE - Chỉ sửa comment và rating của chính mình
+    // UPDATE - User chỉ sửa feedback của chính mình, admin sửa được tất cả
     public FeedbackResponse updateFeedback(
             Integer feedbackId,
             Integer userId,
@@ -122,7 +160,8 @@ public class FeedbackService {
     ) {
         Feedback feedback = feedbackRepository.findById(feedbackId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Feedback not found with id: " + feedbackId));
+                        "Feedback not found with id: " + feedbackId
+                ));
 
         if (!isAdmin && !feedback.getUserID().equals(userId)) {
             throw new RuntimeException("You are not allowed to update this feedback");
@@ -136,11 +175,16 @@ public class FeedbackService {
         return buildFeedbackResponse(feedback);
     }
 
-    // DELETE
-    public void deleteFeedback(Integer feedbackId, Integer userId, boolean isAdmin) {
+    // DELETE - User chỉ xóa feedback của chính mình, admin xóa được tất cả
+    public void deleteFeedback(
+            Integer feedbackId,
+            Integer userId,
+            boolean isAdmin
+    ) {
         Feedback feedback = feedbackRepository.findById(feedbackId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Feedback not found with id: " + feedbackId));
+                        "Feedback not found with id: " + feedbackId
+                ));
 
         if (!isAdmin && !feedback.getUserID().equals(userId)) {
             throw new RuntimeException("You are not allowed to delete this feedback");
@@ -151,15 +195,16 @@ public class FeedbackService {
 
     private FeedbackResponse buildFeedbackResponse(Feedback feedback) {
 
-           String userFullName = userRepository.findById(feedback.getUserID())
-            .map(u -> u.getFullName())
-            .orElse("Unknown");
+        String userFullName = userRepository.findById(feedback.getUserID())
+                .map(user -> user.getFullName())
+                .orElse("Unknown");
 
         String productName = productRepository.findById(feedback.getProductID())
-                .map(p -> p.getName())
+                .map(product -> product.getName())
                 .orElse("Unknown");
 
         FeedbackResponse response = feedbackMapper.toResponse(feedback);
+
         response.setUserFullName(userFullName);
         response.setProductName(productName);
 

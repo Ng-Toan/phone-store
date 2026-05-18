@@ -39,7 +39,7 @@ public class AdminUserController {
 
     @GetMapping("/search")
     public ResponseEntity<List<UserAdminResponse>> searchUsers(
-            @RequestParam String keyword
+            @RequestParam(required = false) String keyword
     ) {
         return ResponseEntity.ok(
                 adminUserService.searchUsers(keyword)
@@ -71,6 +71,6 @@ public class AdminUserController {
     ) {
         adminUserService.deleteUser(id);
 
-        return ResponseEntity.ok("User deleted successfully");
+        return ResponseEntity.ok("User hidden successfully");
     }
 }

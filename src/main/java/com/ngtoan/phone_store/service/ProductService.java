@@ -62,7 +62,10 @@ public class ProductService {
     @Transactional
     public ProductResponse create(ProductRequest request) {
 
-        if (productRepository.existsByName(request.getName())) {
+        if (productRepository.existsByNameAndStatusNot(
+        request.getName(),
+        Product.STATUS_AN_SAN_PHAM
+        )) {
             throw new DuplicateResourceException("Product name already exists");
         }
 
@@ -104,7 +107,10 @@ public class ProductService {
         // Chỉ check trùng tên nếu tên bị đổi
         if (request.getName() != null
                 && !product.getName().equals(request.getName())
-                && productRepository.existsByName(request.getName())) {
+                && productRepository.existsByNameAndStatusNot(
+                        request.getName(),
+                        Product.STATUS_AN_SAN_PHAM
+                )) {
             throw new DuplicateResourceException("Product name already exists");
         }
 

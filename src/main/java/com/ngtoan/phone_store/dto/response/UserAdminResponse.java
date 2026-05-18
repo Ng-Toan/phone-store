@@ -30,5 +30,7 @@ public class UserAdminResponse {
     Boolean status;
     String statusName;
 
+    Boolean deleted;
+
     LocalDateTime createdDate;
 }

@@ -22,7 +22,7 @@ public class MembershipLevelController {
 
     private final MembershipLevelService membershipLevelService;
 
-    // USER / ADMIN xem danh sách cấp độ
+    // USER / ADMIN xem danh sách cấp độ chưa bị xóa mềm
     @GetMapping
     public ResponseEntity<List<MembershipLevelResponse>> getAllLevels() {
         return ResponseEntity.ok(
@@ -65,7 +65,7 @@ public class MembershipLevelController {
         );
     }
 
-    // ADMIN xóa level
+    // ADMIN xóa mềm level
     @DeleteMapping("/admin/{levelID}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> deleteLevel(
@@ -73,7 +73,7 @@ public class MembershipLevelController {
     ) {
         membershipLevelService.deleteLevel(levelID);
 
-        return ResponseEntity.ok("Membership level deleted successfully");
+        return ResponseEntity.ok("Membership level hidden successfully");
     }
 
     // ADMIN tính lại level toàn bộ user

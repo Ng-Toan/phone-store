@@ -42,7 +42,11 @@ public class DashboardResponse {
     List<TopSellingProductItem> topSellingProducts;
     List<LowStockProductItem> lowStockItems;
 
+    // Giữ lại 1 đánh giá mới nhất để frontend cũ không lỗi
     LatestReviewItem latestReview;
+
+    // Dùng cho frontend mới hiển thị nhiều đánh giá, ví dụ 2 đánh giá mới nhất
+    List<LatestReviewItem> latestReviews;
 
     @Data
     @Builder

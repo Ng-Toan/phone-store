@@ -28,4 +28,16 @@ public class MembershipLevel {
 
     @Column(name = "MinSpent", nullable = false)
     BigDecimal minSpent;
+
+    // true: hạng mặc định của hệ thống, không cho xóa
+    // false: hạng admin tự thêm, có thể xóa mềm
+    @Builder.Default
+    @Column(name = "IsDefault", nullable = false)
+    Boolean isDefault = false;
+
+    // true: đã xóa mềm
+    // false: đang sử dụng
+    @Builder.Default
+    @Column(name = "IsDeleted", nullable = false)
+    Boolean isDeleted = false;
 }

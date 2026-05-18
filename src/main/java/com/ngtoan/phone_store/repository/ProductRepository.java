@@ -42,4 +42,6 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     List<Product> findByStatusNot(Integer status);
 
+    boolean existsByNameAndStatusNot(String name, Integer status);
+
 }

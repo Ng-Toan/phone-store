@@ -17,4 +17,8 @@ public class MembershipLevelResponse {
     BigDecimal discountPercent;
 
     BigDecimal minSpent;
+
+    Boolean isDefault;
+
+    Boolean isDeleted;
 }

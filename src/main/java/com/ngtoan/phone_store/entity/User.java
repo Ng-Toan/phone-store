@@ -55,10 +55,16 @@ public class User {
     @Column(name = "TotalSpent")
     BigDecimal totalSpent;
 
+    // true: tài khoản hoạt động / đã xác thực
+    // false: chưa xác thực hoặc bị khóa
     @Column(name = "Status")
     Boolean status;
 
+    // false: chưa xóa
+    // true: đã xóa mềm
+    @Column(name = "IsDeleted")
+    Boolean deleted = false;
+
     @Column(name = "CreatedDate")
     LocalDateTime createdDate;
-
 }
