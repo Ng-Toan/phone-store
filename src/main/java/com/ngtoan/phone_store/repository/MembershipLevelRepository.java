@@ -18,7 +18,6 @@ public interface MembershipLevelRepository extends JpaRepository<MembershipLevel
 
     boolean existsByMinSpentAndLevelIDNot(BigDecimal minSpent, Integer levelID);
 
-    // Chỉ lấy các hạng chưa bị xóa mềm
     @Query("""
             SELECT m
             FROM MembershipLevel m
@@ -27,7 +26,6 @@ public interface MembershipLevelRepository extends JpaRepository<MembershipLevel
             """)
     List<MembershipLevel> findAllVisibleLevels();
 
-    // Lấy chi tiết hạng chưa bị xóa mềm
     @Query("""
             SELECT m
             FROM MembershipLevel m
@@ -36,7 +34,6 @@ public interface MembershipLevelRepository extends JpaRepository<MembershipLevel
             """)
     Optional<MembershipLevel> findVisibleById(Integer levelID);
 
-    // Check trùng tên nhưng bỏ qua hạng đã xóa mềm
     @Query("""
             SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END
             FROM MembershipLevel m
@@ -45,7 +42,6 @@ public interface MembershipLevelRepository extends JpaRepository<MembershipLevel
             """)
     boolean existsVisibleByLevelNameIgnoreCase(String levelName);
 
-    // Check trùng tên khi sửa nhưng bỏ qua chính nó và bỏ qua hạng đã xóa mềm
     @Query("""
             SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END
             FROM MembershipLevel m
@@ -58,7 +54,6 @@ public interface MembershipLevelRepository extends JpaRepository<MembershipLevel
             Integer levelID
     );
 
-    // Check trùng mức chi tiêu nhưng bỏ qua hạng đã xóa mềm
     @Query("""
             SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END
             FROM MembershipLevel m
@@ -67,7 +62,6 @@ public interface MembershipLevelRepository extends JpaRepository<MembershipLevel
             """)
     boolean existsVisibleByMinSpent(BigDecimal minSpent);
 
-    // Check trùng mức chi tiêu khi sửa nhưng bỏ qua chính nó và bỏ qua hạng đã xóa mềm
     @Query("""
             SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END
             FROM MembershipLevel m
@@ -80,26 +74,30 @@ public interface MembershipLevelRepository extends JpaRepository<MembershipLevel
             Integer levelID
     );
 
-    // Tìm hạng phù hợp với tổng chi tiêu, chỉ tính hạng chưa xóa
-    @Query("""
-            SELECT m
-            FROM MembershipLevel m
-            WHERE m.minSpent <= :totalSpent
-              AND (m.isDeleted = false OR m.isDeleted IS NULL)
-            ORDER BY m.minSpent DESC
-            LIMIT 1
-            """)
+    @Query(
+            value = """
+                    SELECT *
+                    FROM `MembershipLevel`
+                    WHERE `MinSpent` <= :totalSpent
+                      AND (`IsDeleted` = 0 OR `IsDeleted` IS NULL)
+                    ORDER BY `MinSpent` DESC
+                    LIMIT 1
+                    """,
+            nativeQuery = true
+    )
     Optional<MembershipLevel> findTopByMinSpentLessThanEqualOrderByMinSpentDesc(
             BigDecimal totalSpent
     );
 
-    // Tìm hạng thấp nhất, chỉ tính hạng chưa xóa
-    @Query("""
-            SELECT m
-            FROM MembershipLevel m
-            WHERE m.isDeleted = false OR m.isDeleted IS NULL
-            ORDER BY m.minSpent ASC
-            LIMIT 1
-            """)
+    @Query(
+            value = """
+                    SELECT *
+                    FROM `MembershipLevel`
+                    WHERE `IsDeleted` = 0 OR `IsDeleted` IS NULL
+                    ORDER BY `MinSpent` ASC
+                    LIMIT 1
+                    """,
+            nativeQuery = true
+    )
     Optional<MembershipLevel> findTopByOrderByMinSpentAsc();
 }

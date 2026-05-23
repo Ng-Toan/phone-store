@@ -42,7 +42,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
             p.note
         )
         FROM Payment p
-        JOIN Order o ON p.orderID = o.orderID
+        JOIN com.ngtoan.phone_store.entity.Order o
+          ON p.orderID = o.orderID
         ORDER BY p.createdDate DESC
     """)
     List<AdminPaymentResponse> getAllAdminPayments();

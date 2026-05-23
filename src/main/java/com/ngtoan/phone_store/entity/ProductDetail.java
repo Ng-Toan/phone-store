@@ -5,6 +5,8 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import static lombok.AccessLevel.PRIVATE;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Entity
 @Table(name = "ProductDetail")
 @Data
@@ -37,8 +39,9 @@ public class ProductDetail {
     @Column(name = "Connectivity")
     String connectivity;
 
-    @OneToOne
-    @JoinColumn(name = "productID")
-    private Product product;
+@JsonIgnore
+@OneToOne(fetch = FetchType.LAZY)
+@JoinColumn(name = "ProductID")
+Product product;
 
 }

@@ -15,6 +15,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
 @EnableMethodSecurity
 @Configuration
 public class SecurityConfig {
@@ -42,35 +47,24 @@ public class SecurityConfig {
                 .requestMatchers("/img/**").permitAll()
                 .requestMatchers("/files/**").permitAll()
 
-                // FEEDBACK - ai cũng được xem
+                // FEEDBACK
                 .requestMatchers(HttpMethod.GET, "/api/feedback/product/**").permitAll()
-                
-                // FEEDBACK - admin quản lý tất cả feedback
                 .requestMatchers(HttpMethod.GET, "/api/feedback/admin/**").hasRole("ADMIN")
-
-                // FEEDBACK - user đăng nhập mới được đánh giá
                 .requestMatchers(HttpMethod.POST, "/api/feedback/add").hasRole("USER")
-
-                // FEEDBACK - user hoặc admin được sửa/xoá
                 .requestMatchers(HttpMethod.PUT, "/api/feedback/update/**").hasAnyRole("USER", "ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/feedback/delete/**").hasAnyRole("USER", "ADMIN")
-                //Giỏ hàng
-                .requestMatchers("/api/cart/**").hasAnyRole("USER")
 
-                 // ORDER - ADMIN quản lý đơn hàng
+                // CART
+                .requestMatchers("/api/cart/**").hasRole("USER")
+
+                // ORDER
                 .requestMatchers("/orders/admin/**").hasRole("ADMIN")
-
-                // ORDER - USER checkout
                 .requestMatchers("/orders/my-orders").hasRole("USER")
                 .requestMatchers("/orders/checkout").hasRole("USER")
 
-                // MEMBERSHIP LEVEL - USER / ADMIN xem danh sách level
+                // MEMBERSHIP LEVEL
                 .requestMatchers(HttpMethod.GET, "/membership-levels").hasAnyRole("USER", "ADMIN")
-
-                // MEMBERSHIP LEVEL - USER xem hạng của chính mình
                 .requestMatchers(HttpMethod.GET, "/membership-levels/user/me").hasRole("USER")
-
-                // MEMBERSHIP LEVEL - ADMIN thêm/sửa/xóa/tính lại level
                 .requestMatchers("/membership-levels/admin").hasRole("ADMIN")
                 .requestMatchers("/membership-levels/admin/**").hasRole("ADMIN")
 
@@ -82,22 +76,21 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/payments").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/payments/**").hasRole("ADMIN")
 
-                // SUPPLIER - ADMIN quản lý nhà cung cấp
+                // SUPPLIER
                 .requestMatchers("/suppliers/**").hasRole("ADMIN")
 
-                // IMPORT - ADMIN quản lý nhập hàng
+                // IMPORT
                 .requestMatchers("/imports/**").hasRole("ADMIN")
 
+                // NOTIFICATION
                 .requestMatchers(HttpMethod.GET, "/notifications/my").authenticated()
                 .requestMatchers(HttpMethod.GET, "/notifications/my/unread-count").authenticated()
-
                 .requestMatchers(HttpMethod.GET, "/notifications/admin").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/notifications/admin/unread-count").hasRole("ADMIN")
-
                 .requestMatchers(HttpMethod.PUT, "/notifications/*/read").authenticated()
 
                 // USER
-                .requestMatchers("/users/**").hasAnyRole("USER","ADMIN")
+                .requestMatchers("/users/**").hasAnyRole("USER", "ADMIN")
                 .requestMatchers("/users/me").hasAnyRole("USER", "ADMIN")
 
                 // ADMIN
@@ -116,20 +109,30 @@ public class SecurityConfig {
     }
 
     @Bean
-    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
-        org.springframework.web.cors.CorsConfiguration config = new org.springframework.web.cors.CorsConfiguration();
+    public UrlBasedCorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(java.util.List.of(
+        // Dùng allowedOriginPatterns để cho phép các domain Vercel preview/production
+        config.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
-                "http://localhost:5173"
+                "http://localhost:5173",
+                "https://*.vercel.app"
         ));
 
-        config.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(java.util.List.of("*"));
+        config.setAllowedMethods(List.of(
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS"
+        ));
+
+        config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
 
-        org.springframework.web.cors.UrlBasedCorsConfigurationSource source =
-                new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
 
         source.registerCorsConfiguration("/**", config);
         return source;

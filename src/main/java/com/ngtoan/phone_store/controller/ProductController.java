@@ -9,6 +9,7 @@ import com.ngtoan.phone_store.dto.request.ProductRequest;
 import com.ngtoan.phone_store.dto.request.ProductUpdateRequest;
 import com.ngtoan.phone_store.dto.response.ProductResponse;
 import com.ngtoan.phone_store.service.ProductService;
+import com.ngtoan.phone_store.repository.*;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductRepository productRepository;
 
     // 🔓 PUBLIC
     @GetMapping
@@ -53,4 +55,16 @@ public class ProductController {
     public void delete(@PathVariable int id) {
         productService.delete(id);
     }
+
+
+    
+@GetMapping("/ping")
+public String ping() {
+    return "OK";
+}
+
+@GetMapping("/debug/test-count")
+public long testCount() {
+    return productRepository.count();
+}
 }

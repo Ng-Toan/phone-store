@@ -23,7 +23,7 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Integer> {
     List<Feedback> findByUserID(Integer userID);
 
     @Query(value = """
-                SELECT TOP 1
+                SELECT
                     f.FeedbackID,
                     f.ProductID,
                     p.Name,
@@ -33,6 +33,7 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Integer> {
                 FROM Feedback f
                 LEFT JOIN Product p ON f.ProductID = p.ProductID
                 ORDER BY f.CreatedDate DESC
+                LIMIT 1
             """, nativeQuery = true)
     Object findLatestReviewWithProductName();
 

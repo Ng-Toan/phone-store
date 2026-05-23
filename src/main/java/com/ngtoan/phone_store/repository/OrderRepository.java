@@ -16,8 +16,8 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
         List<Order> findByUserID(Integer userID);
 
         @Query(value = """
-                        SELECT ISNULL(SUM(TotalAmount), 0)
-                        FROM [Order]
+                        SELECT IFNULL(SUM(TotalAmount), 0)
+                        FROM `Order`
                         WHERE UserID = :userID
                           AND Status = 3
                         """, nativeQuery = true)
