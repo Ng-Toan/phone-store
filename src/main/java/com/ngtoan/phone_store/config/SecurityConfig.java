@@ -44,6 +44,7 @@ public class SecurityConfig {
                 .requestMatchers("/users/verify-email").permitAll()
                 .requestMatchers("/users/resend-verification").permitAll()
                 .requestMatchers("/products/**").permitAll()
+                .requestMatchers("/chatbot/**").permitAll()
                 .requestMatchers("/img/**").permitAll()
                 .requestMatchers("/files/**").permitAll()
 
