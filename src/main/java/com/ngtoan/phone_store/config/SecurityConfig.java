@@ -43,10 +43,23 @@ public class SecurityConfig {
                 .requestMatchers("/users/register").permitAll()
                 .requestMatchers("/users/verify-email").permitAll()
                 .requestMatchers("/users/resend-verification").permitAll()
-                .requestMatchers("/products/**").permitAll()
-                .requestMatchers("/chatbot/**").permitAll()
                 .requestMatchers("/img/**").permitAll()
                 .requestMatchers("/files/**").permitAll()
+                .requestMatchers("/ws/**").permitAll()
+                .requestMatchers("/chatbot/**").permitAll()
+                
+
+                // PRODUCT EXCEL ADMIN
+                .requestMatchers("/products/excel/**").hasRole("ADMIN")
+
+                // PRODUCT PUBLIC
+                .requestMatchers(HttpMethod.GET, "/products").permitAll()
+                .requestMatchers(HttpMethod.GET, "/products/*").permitAll()
+
+                // PRODUCT ADMIN
+                .requestMatchers(HttpMethod.POST, "/products").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/products/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/products/**").hasRole("ADMIN")
 
                 // FEEDBACK
                 .requestMatchers(HttpMethod.GET, "/api/feedback/product/**").permitAll()
@@ -89,12 +102,17 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/notifications/admin").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/notifications/admin/unread-count").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/notifications/*/read").authenticated()
+                                
+                // CHAT
+                .requestMatchers("/chat/admin/**").hasRole("ADMIN")
+                .requestMatchers("/chat/**").hasAnyRole("USER", "ADMIN")
 
                 // USER
                 .requestMatchers("/users/**").hasAnyRole("USER", "ADMIN")
                 .requestMatchers("/users/me").hasAnyRole("USER", "ADMIN")
 
                 // ADMIN
+                .requestMatchers("/admin/excel/**").hasRole("ADMIN")
                 .requestMatchers("/admin/**").hasRole("ADMIN")
 
                 .anyRequest().authenticated()

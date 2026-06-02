@@ -75,7 +75,7 @@ public class ChatbotProductService {
                         :minPrice IS NULL
                         OR COALESCE(p.PromotionPrice, p.Price) >= :minPrice
                       )
-                  AND (
+AND (
                         :maxPrice IS NULL
                         OR COALESCE(p.PromotionPrice, p.Price) <= :maxPrice
                       )
@@ -153,7 +153,7 @@ public class ChatbotProductService {
                     p.VAT,
                     p.Quantity,
                     p.IsHot,
-                    p.Description,
+p.Description,
                     pd.RAM,
                     pd.Storage,
                     pd.CPU,
@@ -232,8 +232,7 @@ public class ChatbotProductService {
             dto.setOs(toStringValue(row[18]));
             dto.setChargingSpeed(toStringValue(row[19]));
             dto.setConnectivity(toStringValue(row[20]));
-
-            result.add(dto);
+result.add(dto);
         }
 
         return result;

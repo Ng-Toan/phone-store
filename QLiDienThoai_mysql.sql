@@ -651,6 +651,33 @@ INSERT INTO `User` VALUES (2,'MinhBeo','$2a$10$eKiDebTDG1Oq.SCycGBk/uEJhRSZURGjo
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
+DROP TABLE IF EXISTS `chatmessage`;
+DROP TABLE IF EXISTS `chatroom`;
+
+CREATE TABLE `chatroom` (
+  `RoomID` int NOT NULL AUTO_INCREMENT,
+  `UserID` int NOT NULL,
+  `CreatedDate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `UpdatedDate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`RoomID`),
+  UNIQUE KEY `UQ_ChatRoom_User` (`UserID`),
+  CONSTRAINT `FK_ChatRoom_User` FOREIGN KEY (`UserID`) REFERENCES `User` (`UserID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `chatmessage` (
+  `MessageID` bigint NOT NULL AUTO_INCREMENT,
+  `RoomID` int NOT NULL,
+  `SenderID` int NOT NULL,
+  `Message` text NOT NULL,
+  `IsRead` tinyint(1) NOT NULL DEFAULT '0',
+  `CreatedDate` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`MessageID`),
+  KEY `FK_ChatMessage_Room` (`RoomID`),
+  KEY `FK_ChatMessage_Sender` (`SenderID`),
+  CONSTRAINT `FK_ChatMessage_Room` FOREIGN KEY (`RoomID`) REFERENCES `chatroom` (`RoomID`),
+  CONSTRAINT `FK_ChatMessage_Sender` FOREIGN KEY (`SenderID`) REFERENCES `User` (`UserID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
