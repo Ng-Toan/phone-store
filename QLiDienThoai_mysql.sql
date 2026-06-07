@@ -678,6 +678,18 @@ CREATE TABLE `chatmessage` (
   CONSTRAINT `FK_ChatMessage_Sender` FOREIGN KEY (`SenderID`) REFERENCES `User` (`UserID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+DROP TABLE IF EXISTS `PasswordResetOtp`;
+CREATE TABLE `PasswordResetOtp` (
+  `ResetID` int NOT NULL AUTO_INCREMENT,
+  `Email` varchar(100) NOT NULL,
+  `OtpCode` varchar(10) NOT NULL,
+  `ExpiredAt` datetime NOT NULL,
+  `Used` tinyint(1) NOT NULL DEFAULT 0,
+  `CreatedAt` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ResetID`),
+  KEY `idx_PasswordResetOtp_Email` (`Email`)
+);
+
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;

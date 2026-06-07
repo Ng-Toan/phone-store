@@ -46,7 +46,7 @@ public class UserService {
     // Login JWT
     public String login(LoginRequest dto) {
 
-        User user = userRepository.findByUsername(dto.getUsername());
+        User user = findLoginUser(dto.getUsername());
 
         if (user == null || Boolean.TRUE.equals(user.getDeleted())) {
             throw new UnauthorizedException("Invalid username or password");
@@ -91,9 +91,7 @@ public class UserService {
     public User getUserById(int id) {
 
         User user = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("User not found with id: " + id)
-                );
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
         if (Boolean.TRUE.equals(user.getDeleted())) {
             throw new ResourceNotFoundException("User not found with id: " + id);
@@ -143,8 +141,35 @@ public class UserService {
 
         if (user == null || Boolean.TRUE.equals(user.getDeleted())) {
             throw new ResourceNotFoundException(
-                    "User not found with username: " + username
-            );
+                    "User not found with username: " + username);
+        }
+
+        return user;
+    }
+
+    // Find by username or email, dùng cho login
+    public User findByUsernameOrEmail(String value) {
+
+        User user = findLoginUser(value);
+
+        if (user == null || Boolean.TRUE.equals(user.getDeleted())) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
+        return user;
+    }
+
+    private User findLoginUser(String value) {
+
+        User user = userRepository.findByUsername(value);
+
+        // Nếu là username thì bắt đúng chữ hoa/thường như lúc đăng ký
+        if (user != null && !user.getUsername().equals(value)) {
+            user = null;
+        }
+
+        if (user == null) {
+            user = userRepository.findByEmail(value);
         }
 
         return user;
@@ -174,11 +199,9 @@ public class UserService {
         if (level == null) {
             level = membershipLevelRepository
                     .findTopByMinSpentLessThanEqualOrderByMinSpentDesc(totalSpent)
-                    .orElseGet(() ->
-                            membershipLevelRepository
-                                    .findTopByOrderByMinSpentAsc()
-                                    .orElse(null)
-                    );
+                    .orElseGet(() -> membershipLevelRepository
+                            .findTopByOrderByMinSpentAsc()
+                            .orElse(null));
         }
 
         UserProfileResponse response = new UserProfileResponse();
@@ -197,8 +220,7 @@ public class UserService {
         response.setLevelName(level != null ? level.getLevelName() : "Đồng");
         response.setMinSpent(level != null ? level.getMinSpent() : BigDecimal.ZERO);
         response.setDiscountPercent(
-                level != null ? level.getDiscountPercent() : BigDecimal.ZERO
-        );
+                level != null ? level.getDiscountPercent() : BigDecimal.ZERO);
 
         response.setTotalSpent(totalSpent);
         response.setStatus(user.getStatus());

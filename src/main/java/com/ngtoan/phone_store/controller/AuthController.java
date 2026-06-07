@@ -29,7 +29,7 @@ public class AuthController {
 
         String token = userService.login(request);
 
-        User user = userService.findByUsername(request.getUsername());
+        User user = userService.findByUsernameOrEmail(request.getUsername());
 
         Map<String, Object> res = new HashMap<>();
         res.put("token", token);

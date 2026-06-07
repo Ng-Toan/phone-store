@@ -40,6 +40,7 @@ public class SecurityConfig {
 
                 // public API
                 .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/password/**").permitAll()
                 .requestMatchers("/users/register").permitAll()
                 .requestMatchers("/users/verify-email").permitAll()
                 .requestMatchers("/users/resend-verification").permitAll()
