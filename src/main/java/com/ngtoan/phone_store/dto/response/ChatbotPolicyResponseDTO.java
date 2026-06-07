@@ -1,33 +1,21 @@
 package com.ngtoan.phone_store.dto.response;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+
 import java.util.List;
 
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class ChatbotPolicyResponseDTO {
 
-    private String answer;
-    private List<String> sources;
-
-    public ChatbotPolicyResponseDTO() {
-    }
-
-    public ChatbotPolicyResponseDTO(String answer, List<String> sources) {
-        this.answer = answer;
-        this.sources = sources;
-    }
-
-    public String getAnswer() {
-        return answer;
-    }
-
-    public void setAnswer(String answer) {
-        this.answer = answer;
-    }
-
-    public List<String> getSources() {
-        return sources;
-    }
-
-    public void setSources(List<String> sources) {
-        this.sources = sources;
-    }
+    String answer;
+    List<String> sources;
 }

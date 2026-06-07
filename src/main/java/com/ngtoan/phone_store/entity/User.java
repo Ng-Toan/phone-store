@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "[User]")
+@Table(name = "User")
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class User {

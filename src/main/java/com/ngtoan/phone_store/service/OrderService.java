@@ -293,102 +293,142 @@ public class OrderService {
 
     // ===== ADMIN UPDATE ORDER =====
     public OrderAdminResponse updateOrderStatus(
-            Integer orderID,
-            OrderStatus status
+        Integer orderID,
+        OrderStatus status
+) {
+
+    Order order = orderRepository.findById(orderID)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Order not found with id: " + orderID
+                    )
+            );
+
+    OrderStatus oldStatus = order.getStatus();
+
+    // ===== VALIDATE FLOW =====
+    validateOrderStatusTransition(oldStatus, status);
+
+    Payment payment = paymentRepository.findByOrderID(orderID).orElse(null);
+
+    // ===== ADMIN XÁC NHẬN ĐƠN =====
+    if (
+            status == OrderStatus.CONFIRMED
+            && oldStatus == OrderStatus.PENDING
     ) {
 
-        Order order = orderRepository.findById(orderID)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Order not found with id: " + orderID
-                        )
-                );
-
-        OrderStatus oldStatus = order.getStatus();
-
-        // ===== VALIDATE FLOW =====
-        validateOrderStatusTransition(oldStatus, status);
-
-        Payment payment = paymentRepository.findByOrderID(orderID).orElse(null);
-
-        // ===== ADMIN XÁC NHẬN ĐƠN =====
+        /*
+         * COD: được xác nhận luôn.
+         * ONLINE: chỉ được xác nhận khi Payment SUCCESS.
+         */
         if (
-                status == OrderStatus.CONFIRMED
-                && oldStatus == OrderStatus.PENDING
+                payment != null
+                && payment.getMethod() != PaymentMethod.COD
+                && payment.getStatus() != PaymentStatus.SUCCESS
         ) {
-
-            /*
-             * COD: được xác nhận luôn.
-             * ONLINE: chỉ được xác nhận khi Payment SUCCESS.
-             */
-            if (
-                    payment != null
-                    && payment.getMethod() != PaymentMethod.COD
-                    && payment.getStatus() != PaymentStatus.SUCCESS
-            ) {
-                throw new BadRequestException(
-                        "Đơn hàng online chưa thanh toán thành công, không thể xác nhận"
-                );
-            }
-
-            deductStock(orderID);
+            throw new BadRequestException(
+                    "Đơn hàng online chưa thanh toán thành công, không thể xác nhận"
+            );
         }
 
-        // ===== HOÀN KHO =====
+        deductStock(orderID);
+    }
+
+    // ===== ADMIN HỦY ĐƠN =====
+    if (status == OrderStatus.CANCELLED) {
+
+        /*
+         * Nếu đơn đã CONFIRMED hoặc SHIPPING thì trước đó đã trừ kho.
+         * Khi hủy phải cộng lại tồn kho.
+         */
         if (
-                status == OrderStatus.CANCELLED
-                &&
-                (
-                        oldStatus == OrderStatus.CONFIRMED
-                        || oldStatus == OrderStatus.SHIPPING
-                )
+                oldStatus == OrderStatus.CONFIRMED
+                || oldStatus == OrderStatus.SHIPPING
         ) {
             restoreStock(orderID);
         }
 
-        // ===== HỦY ĐƠN PENDING ĐÃ THANH TOÁN ONLINE =====
-        if (
-                status == OrderStatus.CANCELLED
-                && oldStatus == OrderStatus.PENDING
-                && payment != null
-                && payment.getMethod() != PaymentMethod.COD
-                && payment.getStatus() == PaymentStatus.SUCCESS
-        ) {
-            payment.setStatus(PaymentStatus.REFUNDED);
-            payment.setNote(
-                    "Đơn online đã thanh toán nhưng bị hủy, cần hoàn tiền thủ công"
-            );
-            paymentRepository.save(payment);
+        if (payment != null) {
+
+            /*
+             * Nếu đơn online đã thanh toán thành công.
+             * Khi admin hủy thì chuyển sang hoàn tiền.
+             */
+            if (
+                    payment.getMethod() != PaymentMethod.COD
+                    && payment.getStatus() == PaymentStatus.SUCCESS
+            ) {
+                payment.setStatus(PaymentStatus.REFUNDED);
+                payment.setNote(
+                        "Đơn online đã thanh toán nhưng bị hủy, cần hoàn tiền thủ công"
+                );
+                paymentRepository.save(payment);
+            }
+
+            /*
+             * Nếu đơn COD đang chờ thanh toán.
+             * Khi hủy thì chuyển sang thanh toán thất bại.
+             */
+            else if (
+                    payment.getMethod() == PaymentMethod.COD
+                    && payment.getStatus() == PaymentStatus.PENDING
+            ) {
+                payment.setStatus(PaymentStatus.FAILED);
+                payment.setNote("Đơn COD đã bị hủy");
+                paymentRepository.save(payment);
+            }
+
+            /*
+             * Nếu đơn online chưa thanh toán mà bị hủy.
+             * Ví dụ user/admin hủy khi payment còn PENDING.
+             */
+            else if (
+                    payment.getMethod() != PaymentMethod.COD
+                    && payment.getStatus() == PaymentStatus.PENDING
+            ) {
+                payment.setStatus(PaymentStatus.FAILED);
+                payment.setNote("Đơn online đã bị hủy khi chưa thanh toán");
+                paymentRepository.save(payment);
+            }
         }
-
-        // ===== UPDATE STATUS =====
-        order.setStatus(status);
-
-        orderRepository.save(order);
-
-        // ===== NOTIFICATION: ADMIN ĐỔI TRẠNG THÁI -> BÁO USER =====
-        if (oldStatus != status) {
-            notifyUserByOrderStatus(order, status);
-        }
-
-        // ===== SYNC PAYMENT COD =====
-        paymentService.syncPaymentWithOrder(order);
-
-        // ===== CHỈ CỘNG TOTAL KHI DELIVERED / SYNC LẠI KHI CANCELLED =====
-        if (
-                status == OrderStatus.DELIVERED
-                || status == OrderStatus.CANCELLED
-        ) {
-
-            syncUserTotalSpent(order.getUserID());
-
-            membershipLevelService.updateUserMembershipLevel(
-                    order.getUserID()
-            );
-        }
-
-        return toAdminResponse(order);
     }
+
+    // ===== UPDATE STATUS =====
+    order.setStatus(status);
+
+    orderRepository.save(order);
+
+    // ===== NOTIFICATION: ADMIN ĐỔI TRẠNG THÁI -> BÁO USER =====
+    if (oldStatus != status) {
+        notifyUserByOrderStatus(order, status);
+    }
+
+    /*
+     * Chỉ sync payment tự động khi đơn KHÔNG bị hủy.
+     * Vì trường hợp CANCELLED đã xử lý payment riêng ở trên:
+     * - Online SUCCESS -> REFUNDED
+     * - COD PENDING -> FAILED
+     * - Online PENDING -> FAILED
+     */
+    if (status != OrderStatus.CANCELLED) {
+        paymentService.syncPaymentWithOrder(order);
+    }
+
+    // ===== CHỈ CỘNG TOTAL KHI DELIVERED / SYNC LẠI KHI CANCELLED =====
+    if (
+            status == OrderStatus.DELIVERED
+            || status == OrderStatus.CANCELLED
+    ) {
+
+        syncUserTotalSpent(order.getUserID());
+
+        membershipLevelService.updateUserMembershipLevel(
+                order.getUserID()
+        );
+    }
+
+    return toAdminResponse(order);
+}
 
     // ===== CLEAR CART =====
     private void clearPurchasedItemsFromCart(
